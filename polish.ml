@@ -94,6 +94,7 @@ let print_polish (p:program) : unit =
             | Add -> " + "
             | Sub -> " - "
             | Mul -> " * "
+            | Div -> " / "
             | Mod -> " % "
             in Printf.printf "%s" operator; print_expr x; print_expr y
 
@@ -108,14 +109,14 @@ let print_polish (p:program) : unit =
         | Le -> " <= "
         | Gt -> " > "
         | Ge -> " >= "
-        in Printf.printf " %s " op;
+        in Printf.printf " %s " comparator;
         print_expr exp2;
     in
     let rec print_block (p:program) (level:int) : unit =
         match p with
         | [] -> ();
         | (pos, instruction)::rest ->
-            Printf.printf "%s" String.make (level*2) " ";
+            Printf.printf "%s" (String.make (level*2) ' ');
             match instruction with
             | Set (name, exp) -> Printf.printf "%s :=" name; print_expr exp;
             | Read (name) -> Printf.printf "READ %s" name;
@@ -123,14 +124,14 @@ let print_polish (p:program) : unit =
             | If (condition, yes, no) ->
                 Printf.printf "IF ";
                 print_condition condition;
-                Printf.print "\n";
+                Printf.printf "\n";
                 print_block yes (level+1);
-                Printf.print "ELSE";
+                Printf.printf "ELSE";
                 print_block no (level+1);
             | While (condition, code) ->
                 Printf.printf "WHILE ";
                 print_condition condition;
-                Printf.print "\n";
+                Printf.printf "\n";
                 print_block code (level+1);
             Printf.printf "\n";
     in
