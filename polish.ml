@@ -50,23 +50,23 @@ type program = block
 
 (***********************************************************************)
 
-let read_polish (filename:string) : program = 
+let read_polish (filename:string) : program =
 	let in_channel = open_in filename in
-	
+
 	let try_read () =
 		try Some (input_line in_channel) with End_of_file -> None in
-	
-	let rec read_loop acc i = 
+
+	let rec read_loop acc i =
 		match try_read () with
 		| Some s -> read_loop (i + 1, s)::acc
 		| None -> close_in in_channel; List.rev acc in
-	
+
 	let main_line_list = loop [] 0 in
-	
+
 	let rec get_indent_level chars acc : int =
 		match chars with
 		| [] -> acc
-		| x :: xs -> 
+		| x :: xs ->
 			if x = " " then
 				get_indent_level xs (acc + 1)
 			else
@@ -75,7 +75,7 @@ let read_polish (filename:string) : program =
 	let rec read_instruction line indent_lvl =
 		let words = String.split_on_char ' ' line in
 		match words with
-		| ""::xs -> read_instruction xs indent_lvl + 1 
+		| ""::xs -> read_instruction xs indent_lvl + 1
 		| "READ"::xs ->
 		| "IF"::xs ->
 		| "ELSE"::xs ->
@@ -99,7 +99,17 @@ let print_polish (p:program) : unit =
 
     in
     let rec print_condition (c:cond) : unit =
-        (* TODO *)
+        let (exp1, op, exp2) = c in
+        print_expr exp1;
+        let comparator = match op with
+        | Eq -> " = "
+        | Ne -> " <> "
+        | Lt -> " < "
+        | Le -> " <= "
+        | Gt -> " > "
+        | Ge -> " >= "
+        in Printf.printf " %s " op;
+        print_expr exp2;
     in
     let rec print_block (p:program) (level:int) : unit =
         match p with
@@ -122,8 +132,7 @@ let print_polish (p:program) : unit =
                 print_condition condition;
                 Printf.print "\n";
                 print_block code (level+1);
-
-
+            Printf.printf "\n";
     in
     aux p 0
 ;;
