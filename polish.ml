@@ -52,7 +52,49 @@ type program = block
 
 let read_polish (filename:string) : program = failwith "TODO"
 
-let print_polish (p:program) : unit = failwith "TODO"
+let print_polish (p:program) : unit =
+    let rec print_expr (e:expr) : unit =
+        match e with
+        | Num(x) -> Printf.printf " %d " x
+        | Var(x) -> Printf.printf " %s " x
+        | Op(op, x, y) ->
+            let operator = match op with
+            | Add -> " + "
+            | Sub -> " - "
+            | Mul -> " * "
+            | Mod -> " % "
+            in Printf.printf "%s" operator; print_expr x; print_expr y
+
+    in
+    let rec print_condition (c:cond) : unit =
+        (* TODO *)
+    in
+    let rec print_block (p:program) (level:int) : unit =
+        match p with
+        | [] -> ();
+        | (pos, instruction)::rest ->
+            Printf.printf "%s" String.make (level*2) " ";
+            match instruction with
+            | Set (name, exp) -> Printf.printf "%s :=" name; print_expr exp;
+            | Read (name) -> Printf.printf "READ %s" name;
+            | Print (exp) -> Printf.printf "PRINT "; print_expr exp;
+            | If (condition, yes, no) ->
+                Printf.printf "IF ";
+                print_condition condition;
+                Printf.print "\n";
+                print_block yes (level+1);
+                Printf.print "ELSE";
+                print_block no (level+1);
+            | While (condition, code) ->
+                Printf.printf "WHILE ";
+                print_condition condition;
+                Printf.print "\n";
+                print_block code (level+1);
+
+
+    in
+    aux p 0
+;;
 
 let eval_polish (p:program) : unit = failwith "TODO"
 
