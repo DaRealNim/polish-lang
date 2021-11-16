@@ -50,7 +50,39 @@ type program = block
 
 (***********************************************************************)
 
-let read_polish (filename:string) : program = failwith "TODO"
+let read_polish (filename:string) : program = 
+	let in_channel = open_in filename in
+	
+	let try_read () =
+		try Some (input_line in_channel) with End_of_file -> None in
+	
+	let rec read_loop acc i = 
+		match try_read () with
+		| Some s -> read_loop (i + 1, s)::acc
+		| None -> close_in in_channel; List.rev acc in
+	
+	let main_line_list = loop [] 0 in
+	
+	let rec get_indent_level chars acc : int =
+		match chars with
+		| [] -> acc
+		| x :: xs -> 
+			if x = " " then
+				get_indent_level xs (acc + 1)
+			else
+				(acc / 2)
+
+	let rec read_instruction line indent_lvl =
+		let words = String.split_on_char ' ' line in
+		match words with
+		| ""::xs -> read_instruction xs indent_lvl + 1 
+		| "READ"::xs ->
+		| "IF"::xs ->
+		| "ELSE"::xs ->
+		| "PRINT"::xs ->
+		| "SET"::xs ->
+		| "WHILE"::xs ->
+;;
 
 let print_polish (p:program) : unit = failwith "TODO"
 
