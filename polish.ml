@@ -135,7 +135,7 @@ let print_polish (p:program) : unit =
                 print_block code (level+1);
             Printf.printf "\n";
     in
-    aux p 0
+    print_block p 0
 ;;
 
 let eval_polish (p:program) : unit = failwith "TODO"
