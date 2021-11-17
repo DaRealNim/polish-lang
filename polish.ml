@@ -138,7 +138,42 @@ let print_polish (p:program) : unit =
     print_block p 0
 ;;
 
-let eval_polish (p:program) : unit = failwith "TODO"
+
+
+module Environment = Map.Make(String);;
+let eval_polish (p:program) : unit =
+    let rec eval_expression (e:expr) =
+        (*TODO*)
+    in
+    let rec eval_condition (c:cond) =
+        (*TODO*)
+    in
+    let rec eval_instruction (i:instr) (e:int Environment.t) =
+        match i with
+        | Set (n, val) -> Environment.add n val e
+        | Read (n) -> (*TODO*)
+        | Print (exp) -> Printf.printf "%d" eval_expression(exp); e
+        | If (cond, blockTrue, blockFalse) ->
+            (*ERROR : these must be mutually recursive (TODO)*)
+            if (eval_condition cond)
+            then eval_block blockTrue
+            else eval_block blockFalse
+        | While (cond, blockRepeat) ->
+            (*ERROR: same (TODO)*)
+            if (eval_condition cond)
+            then eval_block blockRepeat |> eval_instruction i
+            else e
+
+    in
+    let rec eval_block (b:block) (e:int Environment.t) =
+        match b with
+        | [] -> e
+        | (pos, inst)::remaining -> eval_instruction inst |> eval_block remaining
+
+    in
+    let env = Environment.empty in
+    eval_block p env
+;;
 
 let usage () =
   print_string "Polish : analyse statique d'un mini-langage\n";
