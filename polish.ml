@@ -49,7 +49,6 @@ type program = block
 
 
 (***********************************************************************)
-
 let read_polish (filename:string) : program =
 	let in_channel = open_in filename in
 
@@ -63,26 +62,34 @@ let read_polish (filename:string) : program =
 
 	let main_line_list = loop [] 0 in
 
-	let rec get_indent_level chars acc : int =
-		match chars with
-		| [] -> acc
-		| x :: xs ->
-			if x = " " then
-				get_indent_level xs (acc + 1)
-			else
-				(acc / 2)
+	let rec make_read words =
+		match words with
+		| " "::xs -> read xs
+		| x::xs -> Read(x)
+	in
 
-	let rec read_instruction line indent_lvl =
+	let rec make_print words =
+		match words with
+		| " "::xs -> make_print xs
+		| x::xs -> Print(xs)
+	in
+
+	let rec make_set words =
+		match words with
+		| " "::xs -> make_set xs
+		| x::xs -> Set(x, xs)	
+	in
+	let read_instruction line =
 		let words = String.split_on_char ' ' line in
 		match words with
-		| ""::xs -> read_instruction xs indent_lvl + 1
-		| "READ"::xs ->
-		| "IF"::xs ->
+		| "READ"::xs -> make_read xs
+		| "IF"::xs -> 
 		| "ELSE"::xs ->
-		| "PRINT"::xs ->
-		| "SET"::xs ->
+		| "PRINT"::xs -> make_print xs
+		| "SET"::xs -> make_set xs
 		| "WHILE"::xs ->
 ;;
+
 
 let print_polish (p:program) : unit =
     let rec print_expr (e:expr) : unit =
