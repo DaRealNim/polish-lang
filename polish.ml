@@ -47,49 +47,122 @@ and block = (position * instr) list
 (** Un programme Polish est un bloc d'instructions *)
 type program = block
 
+exception WrongIndentation;;
+exception ElseWithoutIf;;
+exception WrongCondition;;
+exception WrongExpression;;
 
 (***********************************************************************)
 let read_polish (filename:string) : program =
-	let in_channel = open_in filename in
+  let in_channel = open_in filename in
 
-	let try_read () =
-		try Some (input_line in_channel) with End_of_file -> None in
+  let try_read () =
+    try Some (input_line in_channel) with End_of_file -> None
+  in
 
-	let rec read_loop acc i =
-		match try_read () with
-		| Some s -> read_loop (i + 1, s)::acc
-		| None -> close_in in_channel; List.rev acc in
+  let rec read_loop acc i =
+    match try_read () with
+    | Some s -> read_loop (i + 1, s)::acc
+    | None -> close_in in_channel; List.rev acc
+  in
 
-	let main_line_list = loop [] 0 in
+  let main_line_list = loop [] 0
+  in
 
-	let rec make_read words =
-		match words with
-		| " "::xs -> read xs
-		| x::xs -> Read(x)
-	in
+  let count_spaces l count =
+    match l with
+    | " "::xs -> count_spaces xs (count + 1)
+    | x::[] -> count
+  in
 
-	let rec make_print words =
-		match words with
-		| " "::xs -> make_print xs
-		| x::xs -> Print(xs)
-	in
+  let rec cut_n_elements l n =
+    if n > 0
+    then cut_n_elements (List.tl l) (n-1)
+    else l
+  in
+  (**
+     type expr =
+      | Num of int
+      | Var of name
+      | Op of op * expr * expr
 
-	let rec make_set words =
-		match words with
-		| " "::xs -> make_set xs
-		| x::xs -> Set(x, xs)
-	in
-	let read_instruction line =
-		let words = String.split_on_char ' ' line in
-		match words with
-		| "READ"::xs -> make_read xs
-		| "IF"::xs ->
-		| "ELSE"::xs ->
-		| "PRINT"::xs -> make_print xs
-		| "SET"::xs -> make_set xs
-		| "WHILE"::xs ->
+     + 3 * 2 1
+     + + 3 * 2 1
+
+     Op(Add, Num(3), Op(Mul, Num(2), Num(1)))
+
+     + 3 * 2 1
+
+     match + - * / %
+     sinon int_of_string
+     sinon Var(nom)
+     Add | Sub | Mul | Div | Mod
+  *)
+  let rec read_expr e =
+    match e with
+    | [] -> raise WrongExpression
+    | "+"::xs1::xs2 -> Op(Add, read_expr [xs1], read_expr xs2)
+    | "-"::xs1::xs2 -> Op(Sub, read_expr [xs1], read_expr xs2)
+    | "*"::xs1::xs2 -> Op(Mul, read_expr [xs1], read_expr xs2)
+    | "/"::xs1::xs2 -> Op(Div, read_expr [xs1], read_expr xs2)
+    | "%"::xs1::xs2 -> Op(Mod, read_expr [xs1], read_expr xs2)
+    | y::ys ->
+      try
+        Num(int_of_string y)
+      with Failure "int_of_string" ->
+      match y with
+      | "+" -> raise WrongExpression
+      | "-" -> raise WrongExpression
+      | "*" -> raise WrongExpression
+      | "/" -> raise WrongExpression
+      | "%" -> raise WrongExpression
+      | _ -> Var(y)
+  in
+  let read_condition c =
+    match c with
+    | ""::xs -> raise WrongCondition
+    | cond1::op::cond2 ->
+      match op with
+      | "=" -> (read_expr cond1, Eq, read_expr cond2)
+      | "<>" -> (read_expr cond1, Ne, read_expr cond2)
+      | "<" -> (read_expr cond1, Lt, read_expr cond2)
+      | "<=" -> (read_expr cond1, Le, read_expr cond2)
+      | ">" -> (read_expr cond1, Gt, read_expr cond2)
+      | ">=" -> (read_expr cond1, Ge, read_expr cond2)
+  in
+
+  let rec read_block lines depth =
+    (* Si l'indentation est descendue, alors terminer*)
+
+    let words = String.split_on_char ' ' line in
+
+    (* TODO : compter espaces en début de line pour déterminer indentation
+       ET supprimer les espaces de début de ligne*)
+
+    let nbspaces = count_spaces words 0 in
+
+    if (nbspaces / 2) > depth then
+      failwith WrongIndentation
+    else if (nbspaces / 2) < depth then
+      (* Block fini *)
+      []
+    else
+      let words_without_indentation = cut_n_elements words nbspaces
+      in
+      match lines with
+      | [] -> []
+      | (pos, line)::xs -> (pos, (read_instruction lines xs depth))::(read_block xs depth)
+  and let rec read_instruction line next depth =
+        match line with
+        | [] -> []
+        | "IF"::c -> If(cond, )
+        | "READ"::name -> Read(name)
+        | var::":="::expr -> Set(var, read_expr expr)
+        | "WHILE"::c -> While(read_condition c, read_block next)
+        | "ELSE"::reste -> failwith ElseWithoutIf
+    in
+    read_block main_line_list [] 0
 ;;
-
 
 let print_polish (p:program) : unit =
   let rec print_expr (e:expr) : unit =
