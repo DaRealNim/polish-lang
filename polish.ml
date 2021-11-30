@@ -77,13 +77,13 @@ let read_polish (filename:string) : program =
 	let rec make_set words =
 		match words with
 		| " "::xs -> make_set xs
-		| x::xs -> Set(x, xs)	
+		| x::xs -> Set(x, xs)
 	in
 	let read_instruction line =
 		let words = String.split_on_char ' ' line in
 		match words with
 		| "READ"::xs -> make_read xs
-		| "IF"::xs -> 
+		| "IF"::xs ->
 		| "ELSE"::xs ->
 		| "PRINT"::xs -> make_print xs
 		| "SET"::xs -> make_set xs
@@ -92,57 +92,68 @@ let read_polish (filename:string) : program =
 
 
 let print_polish (p:program) : unit =
-    let rec print_expr (e:expr) : unit =
-        match e with
-        | Num(x) -> Printf.printf " %d " x
-        | Var(x) -> Printf.printf " %s " x
-        | Op(op, x, y) ->
-            let operator = match op with
-            | Add -> " + "
-            | Sub -> " - "
-            | Mul -> " * "
-            | Div -> " / "
-            | Mod -> " % "
-            in Printf.printf "%s" operator; print_expr x; print_expr y
+  let rec print_expr (e:expr) : unit =
+    match e with
+    | Num(x) -> Printf.printf "%d " x
+    | Var(x) -> Printf.printf "%s " x
+    | Op(op, x, y) ->
+        let operator = match op with
+          | Add -> "+ "
+          | Sub -> "- "
+          | Mul -> "* "
+          | Div -> "/ "
+          | Mod -> "% "
+        in Printf.printf "%s" operator; print_expr x; print_expr y
 
-    in
-    let rec print_condition (c:cond) : unit =
-        let (exp1, op, exp2) = c in
-        print_expr exp1;
-        let comparator = match op with
-        | Eq -> " = "
-        | Ne -> " <> "
-        | Lt -> " < "
-        | Le -> " <= "
-        | Gt -> " > "
-        | Ge -> " >= "
-        in Printf.printf " %s " comparator;
-        print_expr exp2;
-    in
-    let rec print_block (p:program) (level:int) : unit =
-        match p with
-        | [] -> ();
-        | (pos, instruction)::rest ->
-            Printf.printf "%s" (String.make (level*2) ' ');
-            match instruction with
-            | Set (name, exp) -> Printf.printf "%s :=" name; print_expr exp;
-            | Read (name) -> Printf.printf "READ %s" name;
-            | Print (exp) -> Printf.printf "PRINT "; print_expr exp;
-            | If (condition, yes, no) ->
-                Printf.printf "IF ";
-                print_condition condition;
-                Printf.printf "\n";
-                print_block yes (level+1);
-                Printf.printf "ELSE";
-                print_block no (level+1);
-            | While (condition, code) ->
-                Printf.printf "WHILE ";
-                print_condition condition;
-                Printf.printf "\n";
-                print_block code (level+1);
-            Printf.printf "\n";
-    in
-    print_block p 0
+  in
+  let rec print_condition (c:cond) : unit =
+    let (exp1, op, exp2) = c in
+    print_expr exp1;
+    let comparator = match op with
+      | Eq -> "= "
+      | Ne -> "<> "
+      | Lt -> "< "
+      | Le -> "<= "
+      | Gt -> "> "
+      | Ge -> ">= "
+    in Printf.printf "%s" comparator;
+    print_expr exp2;
+  in
+  let rec print_block (p:program) (level:int) : unit =
+    match p with
+    | [] -> ();
+    | (pos, instruction)::rest ->
+        Printf.printf "%s" (String.make (level*2) ' ');
+        (match instruction with
+         | Set (name, exp) -> Printf.printf "%s := " name; print_expr exp;
+         | Read (name) -> Printf.printf "READ %s" name;
+         | Print (exp) -> Printf.printf "PRINT "; print_expr exp;
+         | If (condition, yes, no) ->
+             Printf.printf "IF ";
+             print_condition condition;
+             Printf.printf "\n";
+             print_block yes (level+1);
+             if no != []
+             then
+               (
+                 Printf.printf "ELSE\n";
+                 print_block no (level+1);
+               )
+
+             else
+               ();
+
+         | While (condition, code) ->
+             Printf.printf "WHILE ";
+             print_condition condition;
+             Printf.printf "\n";
+             print_block code (level+1);
+             Printf.printf "\n";
+        );
+        Printf.printf "\n";
+        print_block rest level;
+  in
+  print_block p 0
 ;;
 
 
