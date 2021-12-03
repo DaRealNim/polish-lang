@@ -99,38 +99,51 @@ let read_polish (filename:string) : program =
      Add | Sub | Mul | Div | Mod
   *)
   let rec read_expr e =
-    match e with
-    | [] -> raise WrongExpression
-    | "+"::xs1::xs2 -> Op(Add, read_expr [xs1], read_expr xs2)
-    | "-"::xs1::xs2 -> Op(Sub, read_expr [xs1], read_expr xs2)
-    | "*"::xs1::xs2 -> Op(Mul, read_expr [xs1], read_expr xs2)
-    | "/"::xs1::xs2 -> Op(Div, read_expr [xs1], read_expr xs2)
-    | "%"::xs1::xs2 -> Op(Mod, read_expr [xs1], read_expr xs2)
-    | y::ys ->
-      try
-        Num(int_of_string y)
-      with Failure "int_of_string" ->
-      match y with
-      | "+" -> raise WrongExpression
-      | "-" -> raise WrongExpression
-      | "*" -> raise WrongExpression
-      | "/" -> raise WrongExpression
-      | "%" -> raise WrongExpression
-      | _ -> Var(y)
+      match e with
+          | [] -> raise WrongExpression
+          | "+"::xs ->
+              let ex1, suite = read_expr xs in
+              let ex2, fin = read_expr suite in
+              Op(Add, ex1, ex2), fin
+          | "-"::xs ->
+              let ex1, suite = read_expr xs in
+              let ex2, fin = read_expr suite in
+              Op(Sub, ex1, ex2), fin
+          | "*"::xs ->
+              let ex1, suite = read_expr xs in
+              let ex2, fin = read_expr suite in
+              Op(Mul, ex1, ex2), fin
+          | "/"::xs ->
+              let ex1, suite = read_expr xs in
+              let ex2, fin = read_expr suite in
+              Op(Div, ex1, ex2), fin
+          | "%"::xs ->
+              let ex1, suite = read_expr xs in
+              let ex2, fin = read_expr suite in
+              Op(Mod, ex1, ex2), fin
+          | x::xs -> (
+              try
+                Num(int_of_string x), xs
+              with Failure "int_of_string" -> Var(x), xs
+        )
   in
   let read_condition c =
-    match c with
-    | ""::xs -> raise WrongCondition
-    | cond1::op::cond2 ->
-      match op with
-      | "=" -> (read_expr cond1, Eq, read_expr cond2)
-      | "<>" -> (read_expr cond1, Ne, read_expr cond2)
-      | "<" -> (read_expr cond1, Lt, read_expr cond2)
-      | "<=" -> (read_expr cond1, Le, read_expr cond2)
-      | ">" -> (read_expr cond1, Gt, read_expr cond2)
-      | ">=" -> (read_expr cond1, Ge, read_expr cond2)
-  in
+      let ex1, reste = read_expr c in
+      let comparator, reste = match reste with
+        | "="::xs -> Eq, xs
+        | "<>"::xs -> Ne, xs
+        | "<"::xs -> Lt, xs
+        | ">"::xs -> Gt, xs
+        | "<="::xs -> Le, xs
+        | ">="::xs -> Ge, xs
+        | _ -> raise (WrongCondition "Invalid first expression")
+      in
+      let ex2, reste = read_expr reste in
+      if reste = []
+      then (ex1, comparator, ex2)
+      else raise (WrongCondition "Invalid second expression")
 
+  in
   let rec read_block lines depth =
     (* Si l'indentation est descendue, alors terminer*)
 
