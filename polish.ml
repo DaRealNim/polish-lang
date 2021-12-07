@@ -152,39 +152,63 @@ let read_polish (filename:string) : program =
 	      else
 	        expr
   in
-	
-  let rec read_block lines depth =
-    (* Si l'indentation est descendue, alors terminer*)
 
-    let words = String.split_on_char ' ' line in
-
-    (* TODO : compter espaces en début de line pour déterminer indentation
-       ET supprimer les espaces de début de ligne*)
-
-    let nbspaces = count_spaces words 0 in
-
-    if (nbspaces / 2) > depth then
-      failwith WrongIndentation
-    else if (nbspaces / 2) < depth then
-      (* Block fini *)
-      []
-    else
-      let words_without_indentation = cut_n_elements words nbspaces
-      in
-      match lines with
-      | [] -> []
-      | (pos, line)::xs -> (pos, (read_instruction lines xs depth))::(read_block xs depth)
-  and let rec read_instruction line next depth =
+  let rec read_else_block lines depth rest acc =
+    match lines with
+    | [] -> acc
+    | (pos, x)::xs ->
+      let line = (String.split_on_char ' ' x) in
+      let ind = (count_spaces line) / 2 in
+      if (indent % 2 <> 0) then
+        raise WrongIndentation
+      else
         match line with
-        | [] -> []
-        | "IF"::c -> If(read_condition (List.nth List.length (read_expr c), )
-        | "READ"::name -> Read(name)
-        | var::":="::expr -> Set(var, read_expr expr)
-        | "WHILE"::c -> While(read_condition c, read_block next)
-        | "ELSE"::reste -> failwith ElseWithoutIf
-    in
-    read_block main_line_list [] 0
-;;
+        |"ELSE" -> (read_block rest (ind + 1) acc)::acc
+        | _::ls -> read_else_block xs ind rest acc
+  in
+
+
+  let rec read_else_block lines depth rest acc =
+    match lines with
+    | [] -> List.rev acc
+    | (pos, x)::xs ->
+        let line = (String.split_on_char ' ' x) in
+        let ind = (count_spaces line 0) / 2 in
+        if (ind mod 2 <> 0) then
+          raise WrongIndentation
+        else
+          match line with
+          | [] -> (read_else_block xs ind rest acc)::acc
+          |"ELSE"::ls -> (read_block rest (ind + 1) acc)::acc
+          | _::ls -> (read_else_block xs ind rest acc)::acc
+
+  and read_block lines depth acc =
+    match lines with
+    | [] -> acc
+    | (pos, x)::xs ->
+        let line = (String.split_on_char ' ' x) in
+        let indent = count_spaces line in
+        if (indent >= depth) then
+          (read_instruction line indent xs acc)::acc
+        else
+          List.rev acc
+
+  and read_instruction line depth rest acc =
+    let ind = (count_spaces line) / 2 in
+    if (indent mod 2 <> 0) then
+      raise WrongIndentation
+    else
+      match line with
+      | [] -> []
+      | "READ"::name -> Read(name)::(read_block rest ind acc)
+      | var::":="::expr -> Set(var, read_expr expr)::(read_block rest ind acc)
+      | "PRINT"::expr -> Print(expr)::(read_block rest ind acc)
+      | "WHILE"::c -> While(read_condition c, read_block rest (ind + 1)  acc)::(read_block rest ind acc)
+      | "IF"::c -> If(read_condition c, read_block rest (ind + 1) acc, read_else_block rest ind rest acc)::(read_block rest ind acc)
+      | "ELSE"::reste -> failwith ElseWithoutIf
+  in
+  read_block prog 0 []
+  ;;
 
 let print_polish (p:program) : unit =
   let rec print_expr (e:expr) : unit =
