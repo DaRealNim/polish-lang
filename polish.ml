@@ -172,44 +172,42 @@ let read_polish (filename:string) : program =
     match lines with
     | [] -> List.rev acc
     | (pos, x)::xs ->
-        let line = (String.split_on_char ' ' x) in
-        let ind = (count_spaces line 0) / 2 in
-        if (ind mod 2 <> 0) then
-          raise WrongIndentation
-        else
-          match line with (*TODO: Type match problem here, also remove spaces from line once indent is calculated*)
-          | [] -> (read_else_block xs ind rest acc)::acc
-          |"ELSE"::ls -> (read_block rest (ind + 1) acc)::acc
-          | _::ls -> (read_else_block xs ind rest acc)::acc
+      let line = (String.split_on_char ' ' x) in
+      let ind = (count_spaces line 0) / 2 in
+      if (ind mod 2 <> 0) then
+        raise WrongIndentation
+      else
+        match line with
+        | [] -> read_else_block xs ind rest acc
+        |"ELSE"::ls -> (read_block rest (ind + 1) acc)
+        | _::ls -> read_else_block xs ind rest acc
 
-  and read_block lines depth acc =
+  and read_block lines depth acc = (* TODO: Returns instr list, need to return (pos, instr) list for type check*)
     match lines with
-    | [] -> acc
+    | [] -> List.rev acc
     | (pos, x)::xs ->
-        let line = (String.split_on_char ' ' x) in
-        let indent = count_spaces line in
-        if (indent >= depth) then
-          (read_instruction line indent xs acc)::acc
-        else
-          List.rev acc
+      let line = (String.split_on_char ' ' x) in
+      let indent = (count_spaces line 0) in
+      if (indent >= depth) then
+        (read_instruction line indent xs acc) @ acc
+      else
+        List.rev acc
 
   and read_instruction line depth rest acc =
-    let ind = (count_spaces line) / 2 in
-    if (indent mod 2 <> 0) then
+    let ind = (count_spaces line 0) / 2 in
+    if (ind mod 2 <> 0) then
       raise WrongIndentation
     else
-      match line with (*TODO* Match won't work without indent removed)
+      match line with
       | [] -> []
-      | "READ"::name -> Read(name)::(read_block rest ind acc)
-      | var::":="::expr -> Set(var, read_expr expr)::(read_block rest ind acc)
-      | "PRINT"::expr -> Print(expr)::(read_block rest ind acc)
-      | "WHILE"::c -> While(read_condition c, read_block rest (ind + 1)  acc)::(read_block rest ind acc)
-      | "IF"::c -> If(read_condition c, read_block rest (ind + 1) acc, read_else_block rest ind rest acc)::(read_block rest ind acc)
+      | "READ"::name -> Read(List.hd name)::(read_block rest ind acc)
+      | var::":="::expr -> Set(var, let x = read_expr expr in match x with |(e, n) -> e)::(read_block rest ind acc)
+      | "PRINT"::expr -> Print(let x = read_expr expr in match x with | (e, n) -> e)::(read_block rest ind acc)
+      | "WHILE"::c -> While(read_condition c, (read_block rest (ind + 1) acc))::(read_block rest ind acc) (*TODO Test if it jumps to the correct block...*)
+      | "IF"::c -> If(read_condition c, read_block rest (ind + 1) acc, read_else_block rest ind rest acc)::(read_block rest ind acc) (*TODO Test if it jumps to the correct block...*))
       | "ELSE"::reste -> failwith ElseWithoutIf
   in
   read_block prog 0 []
-  ;;
-
 let print_polish (p:program) : unit =
   let rec print_expr (e:expr) : unit =
     match e with
