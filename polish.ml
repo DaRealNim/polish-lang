@@ -62,11 +62,11 @@ let read_polish (filename:string) : program =
 
   let rec read_loop acc i =
     match try_read () with
-    | Some s -> read_loop (i + 1, s)::acc
+    | Some s -> read_loop ((i, s)::acc) (i + 1)
     | None -> close_in in_channel; List.rev acc
   in
 
-  let main_line_list = loop [] 0
+  let main_line_list = read_loop [] 0
   in
 
   let rec count_spaces l count =
@@ -170,56 +170,75 @@ let read_polish (filename:string) : program =
   *)
 
 
-  let rec read_else_block lines depth rest acc pos =
-    match lines with
-    | [] -> List.rev acc
-    | (pos, x)::xs ->
-        let line = (String.split_on_char ' ' x) in
-        let ind = (count_spaces line 0) in
-        if (ind mod 2 <> 0) then
-          raise WrongIndentation
-        else
-          let ind = ind/2 in
-          match line with (*TODO: Type match problem here, also remove spaces from line once indent is calculated*)
-          | [] -> (read_else_block xs ind rest acc (pos+1)) @ acc
-          |"ELSE"::ls -> (read_block rest (ind + 1) acc (pos+1)) @ acc
-          | _::ls -> (read_else_block xs ind rest acc (pos+1)) @ acc
+    (* let rec read_else_block lines depth rest acc pos =
+        match lines with
+        | [] -> List.rev acc
+        | (pos, x)::xs ->
+            let line = (String.split_on_char ' ' x) in
+            let ind = (count_spaces line 0) in
+            if (ind mod 2 <> 0) then
+              raise WrongIndentation
+            else
+              let ind = ind/2 in
+              match line with (*TODO: Type match problem here, also remove spaces from line once indent is calculated*)
+              | [] -> (read_else_block xs ind rest acc (pos+1)) @ acc
+              |"ELSE"::ls -> (read_block rest (ind + 1) acc (pos+1)) @ acc
+              | _::ls -> (read_else_block xs ind rest acc (pos+1)) @ acc *)
 
-  and read_block lines depth acc pos =
-    match lines with
-    | [] -> List.rev acc
-    | (pos, x)::xs ->
-        let line = (String.split_on_char ' ' x) in
-        let indent = count_spaces line 0 in
-        if (indent >= depth) then
-          (pos, read_instruction line indent xs acc pos)::(read_block xs indent acc (pos+1))
-        else
-          List.rev acc
+    let rec read_block lines depth acc =
+      match lines with
+      | [] -> List.rev acc, []
+      | (pos, x)::xs ->
+          let line = (String.split_on_char ' ' x) in
+          let indent = (count_spaces line 0) / 2 in
+          if (List.hd (cut_n_elements line (indent*2))) = "COMMENT"
+          then read_block xs depth acc
+          else (
+              if (indent >= depth) then
+               let inst, suite = read_instruction line indent xs in
+               match suite with
+               | Some suite -> read_block suite indent ((pos, inst)::acc)
+               | None -> read_block xs indent ((pos, inst)::acc)
+             else
+               List.rev acc, lines
+         )
 
-  and read_instruction line depth rest acc pos =
-    let ind = (count_spaces line 0) in
-    let () = Printf.printf "nb spaces : %d\n" ind in
-    if (ind mod 2 <> 0) then
-      raise WrongIndentation
-    else
-      let ind = ind/2 in
-      let line_no_ident = cut_n_elements line (ind*2) in
-      let () = List.iter (Printf.printf "%s ") line in
-      let () = Printf.printf "\n" in
-      let () = List.iter (Printf.printf "%s ") line_no_ident in
-      let () = Printf.printf "\n" in
-      match line_no_ident with
-      | [] -> failwith "foo"
-      | "READ"::name::reste -> Read(name)
-      | "READ"::[] -> failwith "invalid read"
-      | var::":="::e -> Set(var, read_expr e)
-      | "PRINT"::e -> Print(read_expr e)
-      | "WHILE"::c -> While(read_condition c, read_block rest (ind + 1) acc (pos+1))
-      | "IF"::c -> If(read_condition c, read_block rest (ind + 1) acc (pos+1), read_else_block rest ind rest acc (pos+1))
-      | "ELSE"::reste -> raise ElseWithoutIf
-      | _ -> failwith "unknown error"
+    and read_instruction line depth rest =
+      let ind = (count_spaces line 0) in
+      (*let () = Printf.printf "nb spaces : %d\n" ind in*)
+      if (ind mod 2 <> 0) then
+        raise WrongIndentation
+      else
+        let ind = ind/2 in
+        let line_no_ident = cut_n_elements line (ind*2) in
+        match line_no_ident with
+        | [] -> failwith "foo"
+        | "READ"::name::reste -> Read(name), None
+        | "READ"::[] -> failwith "invalid read"
+        | var::":="::e -> Set(var, read_expr e), None
+        | "PRINT"::e -> Print(read_expr e), None
+        | "WHILE"::c ->
+            let whileblock, suite = read_block rest (ind + 1) [] in
+            While(read_condition c, whileblock), Some suite
+        | "IF"::c -> (
+            let ifblock, suite = read_block rest (ind + 1) [] in
+            match suite with
+            | (pos, inst)::xs ->
+                let elseblock, suite =
+                  if (String.trim inst) = "ELSE"
+                  then
+                    read_block (cut_n_elements suite 1) (ind + 1) []
+                  else
+                    [], suite
+                in
+                If(read_condition c, ifblock, elseblock), Some suite
+            | [] -> If(read_condition c, ifblock, []), None
+          )
+        | "ELSE"::reste -> raise ElseWithoutIf
+        | _ -> failwith "unknown error"
   in
-  read_block prog 0 []
+  let output, _ = read_block main_line_list 0 []
+  in output
 ;;
 
 let print_polish (p:program) : unit =
@@ -250,7 +269,7 @@ let print_polish (p:program) : unit =
     in Printf.printf "%s" comparator;
     print_expr exp2;
   in
-  let rec print_block (p:program) (level:int) : unit =
+  let rec print_block (p:program) (level:int) (newline:bool) : unit =
     match p with
     | [] -> ();
     | (pos, instruction)::rest ->
@@ -263,12 +282,12 @@ let print_polish (p:program) : unit =
              Printf.printf "IF ";
              print_condition condition;
              Printf.printf "\n";
-             print_block yes (level+1);
+             print_block yes (level+1) true;
              if no != []
              then
                (
-                 Printf.printf "ELSE\n";
-                 print_block no (level+1);
+                 Printf.printf "%sELSE\n" (String.make (level*2) ' ');
+                 print_block no (level+1) true;
                )
 
              else
@@ -278,18 +297,19 @@ let print_polish (p:program) : unit =
              Printf.printf "WHILE ";
              print_condition condition;
              Printf.printf "\n";
-             print_block code (level+1);
-             Printf.printf "\n";
+             print_block code (level+1) true;
         );
-        Printf.printf "\n";
-        print_block rest level;
+        if newline
+        then Printf.printf "\n"
+        else ();
+        print_block rest level newline;
   in
-  print_block p 0
+  print_block p 0 true
 ;;
 
 
 
-module Environment = Map.Make(String);;
+(* module Environment = Map.Make(String);;
 let eval_polish (p:program) : unit =
     let rec eval_expression (e:expr) =
         (*TODO*)
@@ -335,4 +355,4 @@ let main () =
   | _ -> usage ()
 
 (* lancement de ce main *)
-let () = main ()
+let () = main () *)
