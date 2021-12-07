@@ -69,7 +69,7 @@ let read_polish (filename:string) : program =
   let main_line_list = loop [] 0
   in
 
-  let count_spaces l count =
+  let rec count_spaces l count =
     match l with
     | ""::xs -> count_spaces xs (count + 1)
     | _ -> count
@@ -220,6 +220,8 @@ let read_polish (filename:string) : program =
       | _ -> failwith "unknown error"
   in
   read_block prog 0 []
+;;
+
 let print_polish (p:program) : unit =
   let rec print_expr (e:expr) : unit =
     match e with
