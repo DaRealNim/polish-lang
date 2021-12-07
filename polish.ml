@@ -187,7 +187,7 @@ let read_polish (filename:string) : program =
 
   and read_block lines depth acc pos =
     match lines with
-    | [] -> acc
+    | [] -> List.rev acc
     | (pos, x)::xs ->
         let line = (String.split_on_char ' ' x) in
         let indent = count_spaces line 0 in
@@ -220,8 +220,6 @@ let read_polish (filename:string) : program =
       | _ -> failwith "unknown error"
   in
   read_block prog 0 []
-  ;;
-
 let print_polish (p:program) : unit =
   let rec print_expr (e:expr) : unit =
     match e with
