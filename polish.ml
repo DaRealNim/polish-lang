@@ -71,8 +71,8 @@ let read_polish (filename:string) : program =
 
   let count_spaces l count =
     match l with
-    | " "::xs -> count_spaces xs (count + 1)
-    | x::[] -> count
+    | ""::xs -> count_spaces xs (count + 1)
+    | _ -> count
   in
 
   let rec cut_n_elements l n =
@@ -150,9 +150,10 @@ let read_polish (filename:string) : program =
 	      if List.length reste <> 0 then
 	        raise WrongExpression
 	      else
-	        expr
+	        exp
   in
 
+  (*
   let rec read_else_block lines depth rest acc =
     match lines with
     | [] -> acc
@@ -166,46 +167,57 @@ let read_polish (filename:string) : program =
         |"ELSE" -> (read_block rest (ind + 1) acc)::acc
         | _::ls -> read_else_block xs ind rest acc
   in
+  *)
 
 
-  let rec read_else_block lines depth rest acc =
+  let rec read_else_block lines depth rest acc pos =
     match lines with
     | [] -> List.rev acc
     | (pos, x)::xs ->
         let line = (String.split_on_char ' ' x) in
-        let ind = (count_spaces line 0) / 2 in
+        let ind = (count_spaces line 0) in
         if (ind mod 2 <> 0) then
           raise WrongIndentation
         else
+          let ind = ind/2 in
           match line with (*TODO: Type match problem here, also remove spaces from line once indent is calculated*)
-          | [] -> (read_else_block xs ind rest acc)::acc
-          |"ELSE"::ls -> (read_block rest (ind + 1) acc)::acc
-          | _::ls -> (read_else_block xs ind rest acc)::acc
+          | [] -> (read_else_block xs ind rest acc (pos+1)) @ acc
+          |"ELSE"::ls -> (read_block rest (ind + 1) acc (pos+1)) @ acc
+          | _::ls -> (read_else_block xs ind rest acc (pos+1)) @ acc
 
-  and read_block lines depth acc =
+  and read_block lines depth acc pos =
     match lines with
     | [] -> acc
     | (pos, x)::xs ->
         let line = (String.split_on_char ' ' x) in
-        let indent = count_spaces line in
+        let indent = count_spaces line 0 in
         if (indent >= depth) then
-          (read_instruction line indent xs acc)::acc
+          (pos, read_instruction line indent xs acc pos)::(read_block xs indent acc (pos+1))
         else
           List.rev acc
 
-  and read_instruction line depth rest acc =
-    let ind = (count_spaces line) / 2 in
-    if (indent mod 2 <> 0) then
+  and read_instruction line depth rest acc pos =
+    let ind = (count_spaces line 0) in
+    let () = Printf.printf "nb spaces : %d\n" ind in
+    if (ind mod 2 <> 0) then
       raise WrongIndentation
     else
-      match line with (*TODO* Match won't work without indent removed)
-      | [] -> []
-      | "READ"::name -> Read(name)::(read_block rest ind acc)
-      | var::":="::expr -> Set(var, read_expr expr)::(read_block rest ind acc)
-      | "PRINT"::expr -> Print(expr)::(read_block rest ind acc)
-      | "WHILE"::c -> While(read_condition c, read_block rest (ind + 1)  acc)::(read_block rest ind acc)
-      | "IF"::c -> If(read_condition c, read_block rest (ind + 1) acc, read_else_block rest ind rest acc)::(read_block rest ind acc)
-      | "ELSE"::reste -> failwith ElseWithoutIf
+      let ind = ind/2 in
+      let line_no_ident = cut_n_elements line (ind*2) in
+      let () = List.iter (Printf.printf "%s ") line in
+      let () = Printf.printf "\n" in
+      let () = List.iter (Printf.printf "%s ") line_no_ident in
+      let () = Printf.printf "\n" in
+      match line_no_ident with
+      | [] -> failwith "foo"
+      | "READ"::name::reste -> Read(name)
+      | "READ"::[] -> failwith "invalid read"
+      | var::":="::e -> Set(var, read_expr e)
+      | "PRINT"::e -> Print(read_expr e)
+      | "WHILE"::c -> While(read_condition c, read_block rest (ind + 1) acc (pos+1))
+      | "IF"::c -> If(read_condition c, read_block rest (ind + 1) acc (pos+1), read_else_block rest ind rest acc (pos+1))
+      | "ELSE"::reste -> raise ElseWithoutIf
+      | _ -> failwith "unknown error"
   in
   read_block prog 0 []
   ;;
