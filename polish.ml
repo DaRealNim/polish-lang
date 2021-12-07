@@ -177,7 +177,7 @@ let read_polish (filename:string) : program =
         if (ind mod 2 <> 0) then
           raise WrongIndentation
         else
-          match line with
+          match line with (*TODO: Type match problem here, also remove spaces from line once indent is calculated*)
           | [] -> (read_else_block xs ind rest acc)::acc
           |"ELSE"::ls -> (read_block rest (ind + 1) acc)::acc
           | _::ls -> (read_else_block xs ind rest acc)::acc
@@ -198,7 +198,7 @@ let read_polish (filename:string) : program =
     if (indent mod 2 <> 0) then
       raise WrongIndentation
     else
-      match line with
+      match line with (*TODO* Match won't work without indent removed)
       | [] -> []
       | "READ"::name -> Read(name)::(read_block rest ind acc)
       | var::":="::expr -> Set(var, read_expr expr)::(read_block rest ind acc)
