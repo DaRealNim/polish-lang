@@ -80,24 +80,7 @@ let read_polish (filename:string) : program =
     then cut_n_elements (List.tl l) (n-1)
     else l
   in
-  (**
-     type expr =
-      | Num of int
-      | Var of name
-      | Op of op * expr * expr
 
-     + 3 * 2 1
-     + + 3 * 2 1
-
-     Op(Add, Num(3), Op(Mul, Num(2), Num(1)))
-
-     + 3 * 2 1
-
-     match + - * / %
-     sinon int_of_string
-     sinon Var(nom)
-     Add | Sub | Mul | Div | Mod
-  *)
 	let rec make_expr e =
 	  match e with
 	  | [] -> raise WrongExpression
@@ -124,7 +107,7 @@ let read_polish (filename:string) : program =
 	  | x::xs -> (
 	      try
 	        Num(int_of_string x), xs
-	      with Failure "int_of_string" -> Var(x), xs
+	      with Failure msg -> Var(x), xs
 	    )
 	in
 	let read_condition c =
@@ -153,37 +136,6 @@ let read_polish (filename:string) : program =
 	        exp
   in
 
-  (*
-  let rec read_else_block lines depth rest acc =
-    match lines with
-    | [] -> acc
-    | (pos, x)::xs ->
-      let line = (String.split_on_char ' ' x) in
-      let ind = (count_spaces line) / 2 in
-      if (indent % 2 <> 0) then
-        raise WrongIndentation
-      else
-        match line with
-        |"ELSE" -> (read_block rest (ind + 1) acc)::acc
-        | _::ls -> read_else_block xs ind rest acc
-  in
-  *)
-
-
-    (* let rec read_else_block lines depth rest acc pos =
-        match lines with
-        | [] -> List.rev acc
-        | (pos, x)::xs ->
-            let line = (String.split_on_char ' ' x) in
-            let ind = (count_spaces line 0) in
-            if (ind mod 2 <> 0) then
-              raise WrongIndentation
-            else
-              let ind = ind/2 in
-              match line with (*TODO: Type match problem here, also remove spaces from line once indent is calculated*)
-              | [] -> (read_else_block xs ind rest acc (pos+1)) @ acc
-              |"ELSE"::ls -> (read_block rest (ind + 1) acc (pos+1)) @ acc
-              | _::ls -> (read_else_block xs ind rest acc (pos+1)) @ acc *)
 
     let rec read_block lines depth acc =
       match lines with
@@ -256,7 +208,7 @@ let print_polish (p:program) : unit =
         in Printf.printf "%s" operator; print_expr x; print_expr y
 
   in
-  let rec print_condition (c:cond) : unit =
+  let print_condition (c:cond) : unit =
     let (exp1, op, exp2) = c in
     print_expr exp1;
     let comparator = match op with
@@ -309,39 +261,80 @@ let print_polish (p:program) : unit =
 
 
 
-(* module Environment = Map.Make(String);;
+module Environment = Map.Make(String);;
 let eval_polish (p:program) : unit =
-    let rec eval_expression (e:expr) =
-        (*TODO*)
+    let get_variable (var:name) (e:int Environment.t) =
+        let v = Environment.find_opt var e in
+        match v with
+        | Some(value) -> value
+        | None -> failwith (Printf.sprintf "Error: accessed variable %s before setting it" var)
     in
-    let rec eval_condition (c:cond) =
-        (*TODO*)
+    let rec eval_operation (operator:op) (ex1:expr) (ex2:expr) (env:int Environment.t) =
+        match operator with
+        | Add -> (eval_expression ex1 env) + (eval_expression ex2 env)
+        | Sub -> (eval_expression ex1 env) - (eval_expression ex2 env)
+        | Mul -> (eval_expression ex1 env) * (eval_expression ex2 env)
+        | Div ->
+            let valex2 = (eval_expression ex2 env) in
+            if (valex2 = 0)
+            then failwith "Error: tried dividing by 0"
+            else (eval_expression ex1 env) / valex2
+        | Mod ->
+            let valex2 = (eval_expression ex2 env) in
+            if (valex2 = 0)
+            then failwith "Error: tried dividing by 0"
+            else (eval_expression ex1 env) mod valex2
+    and eval_expression (ex:expr) (env:int Environment.t) =
+        match ex with
+        | Num(v) -> v
+        | Var(variable) -> get_variable variable env
+        | Op(operator, ex1, ex2) -> eval_operation operator ex1 ex2 env
+    in
+    let eval_condition (c:cond) (env:int Environment.t) =
+        match c with
+        | (exp1, comparator, exp2) ->
+            let valexp1 = eval_expression exp1 env in
+            let valexp2 = eval_expression exp2 env in
+            match comparator with
+            | Eq -> valexp1 = valexp2
+            | Ne -> valexp1 <> valexp2
+            | Lt -> valexp1 < valexp2
+            | Le -> valexp1 <= valexp2
+            | Gt -> valexp1 > valexp2
+            | Ge -> valexp1 >= valexp2
     in
     let rec eval_instruction (i:instr) (e:int Environment.t) =
         match i with
-        | Set (n, val) -> Environment.add n val e
-        | Read (n) -> (*TODO*)
-        | Print (exp) -> Printf.printf "%d" eval_expression(exp); e
+        | Set (n, ex) -> Environment.add n (eval_expression ex e) e
+        | Read (n) ->
+            (
+                Printf.printf "%s?" n;
+                try
+                    let v = read_int() in
+                    Environment.add n v e
+                with Failure s -> failwith (Printf.sprintf "Error: failed reading value for %s: %s" n s)
+            )
+        | Print (exp) -> Printf.printf "%d\n" (eval_expression exp e); e
         | If (cond, blockTrue, blockFalse) ->
             (*ERROR : these must be mutually recursive (TODO)*)
-            if (eval_condition cond)
-            then eval_block blockTrue
-            else eval_block blockFalse
+            if (eval_condition cond e)
+            then eval_block blockTrue e
+            else eval_block blockFalse e
         | While (cond, blockRepeat) ->
             (*ERROR: same (TODO)*)
-            if (eval_condition cond)
-            then eval_block blockRepeat |> eval_instruction i
+            if (eval_condition cond e)
+            then (eval_block blockRepeat e) |> eval_instruction i
             else e
 
-    in
-    let rec eval_block (b:block) (e:int Environment.t) =
+    and eval_block (b:block) (e:int Environment.t) =
         match b with
         | [] -> e
-        | (pos, inst)::remaining -> eval_instruction inst |> eval_block remaining
+        | (pos, inst)::remaining -> (eval_instruction inst e) |> eval_block remaining
 
     in
     let env = Environment.empty in
-    eval_block p env
+    let _ = eval_block p env in
+    ()
 ;;
 
 let usage () =
@@ -355,4 +348,4 @@ let main () =
   | _ -> usage ()
 
 (* lancement de ce main *)
-let () = main () *)
+let () = main ()
