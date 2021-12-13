@@ -25,12 +25,12 @@ type expr =
 
 (** Opérateurs de comparaisons *)
 type comp =
-| Eq (* = *)
-| Ne (* Not equal, <> *)
-| Lt (* Less than, < *)
-| Le (* Less or equal, <= *)
-| Gt (* Greater than, > *)
-| Ge (* Greater or equal, >= *)
+  | Eq (* = *)
+  | Ne (* Not equal, <> *)
+  | Lt (* Less than, < *)
+  | Le (* Less or equal, <= *)
+  | Gt (* Greater than, > *)
+  | Ge (* Greater or equal, >= *)
 
 (** Condition : comparaison entre deux expressions *)
 type cond = expr * comp * expr
@@ -48,6 +48,7 @@ and block = (position * instr) list
 type program = block
 
 exception WrongIndentation;;
+exception ExpectedIndentedBlock;;
 exception ElseWithoutIf;;
 exception WrongCondition;;
 exception WrongExpression;;
@@ -81,115 +82,121 @@ let read_polish (filename:string) : program =
     else l
   in
 
-	let rec make_expr e =
-	  match e with
-	  | [] -> raise WrongExpression
-	  | "+"::xs ->
-	      let ex1, suite = make_expr xs in
-	      let ex2, fin = make_expr suite in
-	      Op(Add, ex1, ex2), fin
-	  | "-"::xs ->
-	      let ex1, suite = make_expr xs in
-	      let ex2, fin = make_expr suite in
-	      Op(Sub, ex1, ex2), fin
-	  | "*"::xs ->
-	      let ex1, suite = make_expr xs in
-	      let ex2, fin = make_expr suite in
-	      Op(Mul, ex1, ex2), fin
-	  | "/"::xs ->
-	      let ex1, suite = make_expr xs in
-	      let ex2, fin = make_expr suite in
-	      Op(Div, ex1, ex2), fin
-	  | "%"::xs ->
-	      let ex1, suite = make_expr xs in
-	      let ex2, fin = make_expr suite in
-	      Op(Mod, ex1, ex2), fin
-	  | x::xs -> (
-	      try
-	        Num(int_of_string x), xs
-	      with Failure msg -> Var(x), xs
-	    )
-	in
-	let read_condition c =
-	  let ex1, reste = make_expr c in
-	  let comparator, reste = match reste with
-	    | "="::xs -> Eq, xs
-	    | "<>"::xs -> Ne, xs
-	    | "<"::xs -> Lt, xs
-	    | ">"::xs -> Gt, xs
-	    | "<="::xs -> Le, xs
-	    | ">="::xs -> Ge, xs
-	    | _ -> raise (WrongCondition)
-	  in
-	  let ex2, reste = make_expr reste in
-	  if reste = []
-	  then (ex1, comparator, ex2)
-	  else raise (WrongCondition)
-	in
-	let read_expr e =
-	  let expr = make_expr e in
-	  match expr with
-	  | (exp, reste) ->
-	      if List.length reste <> 0 then
-	        raise WrongExpression
-	      else
-	        exp
+  let rec make_expr e =
+    match e with
+    | [] -> raise WrongExpression
+    | "+"::xs ->
+        let ex1, suite = make_expr xs in
+        let ex2, fin = make_expr suite in
+        Op(Add, ex1, ex2), fin
+    | "-"::xs ->
+        let ex1, suite = make_expr xs in
+        let ex2, fin = make_expr suite in
+        Op(Sub, ex1, ex2), fin
+    | "*"::xs ->
+        let ex1, suite = make_expr xs in
+        let ex2, fin = make_expr suite in
+        Op(Mul, ex1, ex2), fin
+    | "/"::xs ->
+        let ex1, suite = make_expr xs in
+        let ex2, fin = make_expr suite in
+        Op(Div, ex1, ex2), fin
+    | "%"::xs ->
+        let ex1, suite = make_expr xs in
+        let ex2, fin = make_expr suite in
+        Op(Mod, ex1, ex2), fin
+    | x::xs -> (
+        try
+          Num(int_of_string x), xs
+        with Failure msg -> Var(x), xs
+      )
+  in
+  let read_condition c =
+    let ex1, reste = make_expr c in
+    let comparator, reste = match reste with
+      | "="::xs -> Eq, xs
+      | "<>"::xs -> Ne, xs
+      | "<"::xs -> Lt, xs
+      | ">"::xs -> Gt, xs
+      | "<="::xs -> Le, xs
+      | ">="::xs -> Ge, xs
+      | _ -> raise (WrongCondition)
+    in
+    let ex2, reste = make_expr reste in
+    if reste = []
+    then (ex1, comparator, ex2)
+    else raise (WrongCondition)
+  in
+  let read_expr e =
+    let expr = make_expr e in
+    match expr with
+    | (exp, reste) ->
+        if List.length reste <> 0 then
+          raise WrongExpression
+        else
+          exp
   in
 
 
-    let rec read_block lines depth acc =
-      match lines with
-      | [] -> List.rev acc, []
-      | (pos, x)::xs ->
-          let line = (String.split_on_char ' ' x) in
-          let indent = (count_spaces line 0) / 2 in
-          if (List.hd (cut_n_elements line (indent*2))) = "COMMENT"
-          then read_block xs depth acc
-          else (
-             if (indent >= depth) then
-               let inst, suite = read_instruction line depth xs in
-               match suite with
-               | Some suite -> read_block suite depth ((pos, inst)::acc)
-               | None -> read_block xs depth ((pos, inst)::acc)
-             else
-               List.rev acc, lines
-         )
-
-    and read_instruction line depth rest =
-      let ind = (count_spaces line 0) in
-      (* let () = Printf.printf "line : " in
-      let () = List.iter (Printf.printf "%s ") line in
-      let () = Printf.printf "\nnb spaces : %d\ndepth : %d\n" ind depth in *)
-      if (ind mod 2 <> 0) || (ind / 2 <> depth) then
-        raise WrongIndentation
-      else
-        let ind = ind/2 in
-        let line_no_ident = cut_n_elements line (ind*2) in
-        match line_no_ident with
-        | [] -> failwith "foo"
-        | "READ"::name::reste -> Read(name), None
-        | "READ"::[] -> failwith "invalid read"
-        | var::":="::e -> Set(var, read_expr e), None
-        | "PRINT"::e -> Print(read_expr e), None
-        | "WHILE"::c ->
-            let whileblock, suite = read_block rest (ind + 1) [] in
-            While(read_condition c, whileblock), Some suite
-        | "IF"::c -> (
-            let ifblock, suite = read_block rest (ind + 1) [] in
+  let rec read_block lines depth acc =
+    match lines with
+    | [] -> List.rev acc, []
+    | (pos, x)::xs ->
+        let line = (String.split_on_char ' ' x) in
+        let spaces = (count_spaces line 0) in
+        let indent = spaces / 2 in
+        if (List.length line) = spaces || (List.hd (cut_n_elements line (indent*2))) = "COMMENT"
+        then read_block xs depth acc
+        else (
+          if (indent >= depth) then
+            let inst, suite = read_instruction line depth xs in
             match suite with
-            | (pos, inst)::xs ->
-                let elseblock, suite =
-                  if (String.trim inst) = "ELSE"
-                  then
-                    read_block (cut_n_elements suite 1) (ind + 1) []
-                  else
-                    [], suite
-                in
-                If(read_condition c, ifblock, elseblock), Some suite
-            | [] -> If(read_condition c, ifblock, []), None
-          )
-        | "ELSE"::reste -> raise ElseWithoutIf
-        | _ -> failwith "unknown error"
+            | Some suite -> read_block suite depth ((pos, inst)::acc)
+            | None -> read_block xs depth ((pos, inst)::acc)
+          else
+            List.rev acc, lines
+        )
+
+  and read_instruction line depth rest =
+    let ind = (count_spaces line 0) in
+    if (ind mod 2 <> 0) || (ind / 2 <> depth) then
+      raise WrongIndentation
+    else
+      let ind = ind/2 in
+      let line_no_ident = cut_n_elements line (ind*2) in
+      match line_no_ident with
+      | [] -> failwith "foo"
+      | "READ"::name::reste -> Read(name), None
+      | "READ"::[] -> failwith "invalid read"
+      | var::":="::e -> Set(var, read_expr e), None
+      | "PRINT"::e -> Print(read_expr e), None
+      | "WHILE"::c ->
+          let whileblock, suite = read_block rest (ind + 1) [] in
+          if (List.length whileblock) = 0
+          then raise ExpectedIndentedBlock
+          else While(read_condition c, whileblock), Some suite
+      | "IF"::c -> (
+          let ifblock, suite = read_block rest (ind + 1) [] in
+          if (List.length ifblock) = 0
+          then raise ExpectedIndentedBlock
+          else ();
+          match suite with
+          | (pos, inst)::xs ->
+              let elseblock, suite =
+                if (String.trim inst) = "ELSE"
+                then
+                  let block, suite = read_block (cut_n_elements suite 1) (ind + 1) [] in
+                  if (List.length block) = 0
+                  then raise ExpectedIndentedBlock
+                  else block, suite
+                else
+                  [], suite
+              in
+              If(read_condition c, ifblock, elseblock), Some suite
+          | [] -> If(read_condition c, ifblock, []), None
+        )
+      | "ELSE"::reste -> raise ElseWithoutIf
+      | _ -> failwith "unknown error"
   in
   let output, _ = read_block main_line_list 0 []
   in output
@@ -224,34 +231,34 @@ let print_polish (p:program) : unit =
     print_expr exp2;
   in
   let rec print_instruction (instruction:instr) (level:int) : bool =
-      Printf.printf "%s" (String.make (level*2) ' ');
-      match instruction with
-       | Set (name, exp) -> Printf.printf "%s := " name; print_expr exp; true
-       | Read (name) -> Printf.printf "READ %s" name; true
-       | Print (exp) -> Printf.printf "PRINT "; print_expr exp; true
-       | If (condition, yes, no) ->
-           Printf.printf "IF ";
-           print_condition condition;
-           Printf.printf "\n";
-           print_block yes (level+1);
-           if no != []
-           then
-             (
-               Printf.printf "%sELSE\n" (String.make (level*2) ' ');
-               print_block no (level+1);
-               false
-             )
-           else
-             false;
+    Printf.printf "%s" (String.make (level*2) ' ');
+    match instruction with
+    | Set (name, exp) -> Printf.printf "%s := " name; print_expr exp; true
+    | Read (name) -> Printf.printf "READ %s" name; true
+    | Print (exp) -> Printf.printf "PRINT "; print_expr exp; true
+    | If (condition, yes, no) ->
+        Printf.printf "IF ";
+        print_condition condition;
+        Printf.printf "\n";
+        print_block yes (level+1);
+        if no != []
+        then
+          (
+            Printf.printf "%sELSE\n" (String.make (level*2) ' ');
+            print_block no (level+1);
+            false
+          )
+        else
+          false;
 
-       | While (condition, code) ->
-           (
-               Printf.printf "WHILE ";
-               print_condition condition;
-               Printf.printf "\n";
-               print_block code (level+1);
-               false
-           )
+    | While (condition, code) ->
+        (
+          Printf.printf "WHILE ";
+          print_condition condition;
+          Printf.printf "\n";
+          print_block code (level+1);
+          false
+        )
 
 
   and print_block (p:program) (level:int) : unit =
@@ -271,78 +278,78 @@ let print_polish (p:program) : unit =
 
 module Environment = Map.Make(String);;
 let eval_polish (p:program) : unit =
-    let get_variable (var:name) (e:int Environment.t) =
-        let v = Environment.find_opt var e in
-        match v with
-        | Some(value) -> value
-        | None -> failwith (Printf.sprintf "Error: accessed variable %s before setting it" var)
-    in
-    let rec eval_operation (operator:op) (ex1:expr) (ex2:expr) (env:int Environment.t) =
-        match operator with
-        | Add -> (eval_expression ex1 env) + (eval_expression ex2 env)
-        | Sub -> (eval_expression ex1 env) - (eval_expression ex2 env)
-        | Mul -> (eval_expression ex1 env) * (eval_expression ex2 env)
-        | Div ->
-            let valex2 = (eval_expression ex2 env) in
-            if (valex2 = 0)
-            then failwith "Error: tried dividing by 0"
-            else (eval_expression ex1 env) / valex2
-        | Mod ->
-            let valex2 = (eval_expression ex2 env) in
-            if (valex2 = 0)
-            then failwith "Error: tried dividing by 0"
-            else (eval_expression ex1 env) mod valex2
-    and eval_expression (ex:expr) (env:int Environment.t) =
-        match ex with
-        | Num(v) -> v
-        | Var(variable) -> get_variable variable env
-        | Op(operator, ex1, ex2) -> eval_operation operator ex1 ex2 env
-    in
-    let eval_condition (c:cond) (env:int Environment.t) =
-        match c with
-        | (exp1, comparator, exp2) ->
-            let valexp1 = eval_expression exp1 env in
-            let valexp2 = eval_expression exp2 env in
-            match comparator with
-            | Eq -> valexp1 = valexp2
-            | Ne -> valexp1 <> valexp2
-            | Lt -> valexp1 < valexp2
-            | Le -> valexp1 <= valexp2
-            | Gt -> valexp1 > valexp2
-            | Ge -> valexp1 >= valexp2
-    in
-    let rec eval_instruction (i:instr) (e:int Environment.t) =
-        match i with
-        | Set (n, ex) -> Environment.add n (eval_expression ex e) e
-        | Read (n) ->
-            (
-                Printf.printf "%s?" n;
-                try
-                    let v = read_int() in
-                    Environment.add n v e
-                with Failure s -> failwith (Printf.sprintf "Error: failed reading value for %s: %s" n s)
-            )
-        | Print (exp) -> Printf.printf "%d\n" (eval_expression exp e); e
-        | If (cond, blockTrue, blockFalse) ->
+  let get_variable (var:name) (e:int Environment.t) =
+    let v = Environment.find_opt var e in
+    match v with
+    | Some(value) -> value
+    | None -> failwith (Printf.sprintf "Error: accessed variable %s before setting it" var)
+  in
+  let rec eval_operation (operator:op) (ex1:expr) (ex2:expr) (env:int Environment.t) =
+    match operator with
+    | Add -> (eval_expression ex1 env) + (eval_expression ex2 env)
+    | Sub -> (eval_expression ex1 env) - (eval_expression ex2 env)
+    | Mul -> (eval_expression ex1 env) * (eval_expression ex2 env)
+    | Div ->
+        let valex2 = (eval_expression ex2 env) in
+        if (valex2 = 0)
+        then failwith "Error: tried dividing by 0"
+        else (eval_expression ex1 env) / valex2
+    | Mod ->
+        let valex2 = (eval_expression ex2 env) in
+        if (valex2 = 0)
+        then failwith "Error: tried dividing by 0"
+        else (eval_expression ex1 env) mod valex2
+  and eval_expression (ex:expr) (env:int Environment.t) =
+    match ex with
+    | Num(v) -> v
+    | Var(variable) -> get_variable variable env
+    | Op(operator, ex1, ex2) -> eval_operation operator ex1 ex2 env
+  in
+  let eval_condition (c:cond) (env:int Environment.t) =
+    match c with
+    | (exp1, comparator, exp2) ->
+        let valexp1 = eval_expression exp1 env in
+        let valexp2 = eval_expression exp2 env in
+        match comparator with
+        | Eq -> valexp1 = valexp2
+        | Ne -> valexp1 <> valexp2
+        | Lt -> valexp1 < valexp2
+        | Le -> valexp1 <= valexp2
+        | Gt -> valexp1 > valexp2
+        | Ge -> valexp1 >= valexp2
+  in
+  let rec eval_instruction (i:instr) (e:int Environment.t) =
+    match i with
+    | Set (n, ex) -> Environment.add n (eval_expression ex e) e
+    | Read (n) ->
+        (
+          Printf.printf "%s?" n;
+          try
+            let v = read_int() in
+            Environment.add n v e
+          with Failure s -> failwith (Printf.sprintf "Error: failed reading value for %s: %s" n s)
+        )
+    | Print (exp) -> Printf.printf "%d\n" (eval_expression exp e); e
+    | If (cond, blockTrue, blockFalse) ->
             (*ERROR : these must be mutually recursive (TODO)*)
-            if (eval_condition cond e)
-            then eval_block blockTrue e
-            else eval_block blockFalse e
-        | While (cond, blockRepeat) ->
+        if (eval_condition cond e)
+        then eval_block blockTrue e
+        else eval_block blockFalse e
+    | While (cond, blockRepeat) ->
             (*ERROR: same (TODO)*)
-            if (eval_condition cond e)
-            then (eval_block blockRepeat e) |> eval_instruction i
-            else e
+        if (eval_condition cond e)
+        then (eval_block blockRepeat e) |> eval_instruction i
+        else e
 
-    and eval_block (b:block) (e:int Environment.t) =
-        match b with
-        | [] -> e
-        | (pos, inst)::remaining -> (eval_instruction inst e) |> eval_block remaining
+  and eval_block (b:block) (e:int Environment.t) =
+    match b with
+    | [] -> e
+    | (pos, inst)::remaining -> (eval_instruction inst e) |> eval_block remaining
 
-    in
-    let env = Environment.empty in
-    let _ = eval_block p env in
-    ()
+  in
+  let env = Environment.empty in
+  let _ = eval_block p env in
+  ()
 ;;
 
 let usage () =
