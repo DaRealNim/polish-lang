@@ -146,19 +146,21 @@ let read_polish (filename:string) : program =
           if (List.hd (cut_n_elements line (indent*2))) = "COMMENT"
           then read_block xs depth acc
           else (
-              if (indent >= depth) then
-               let inst, suite = read_instruction line indent xs in
+             if (indent >= depth) then
+               let inst, suite = read_instruction line depth xs in
                match suite with
-               | Some suite -> read_block suite indent ((pos, inst)::acc)
-               | None -> read_block xs indent ((pos, inst)::acc)
+               | Some suite -> read_block suite depth ((pos, inst)::acc)
+               | None -> read_block xs depth ((pos, inst)::acc)
              else
                List.rev acc, lines
          )
 
     and read_instruction line depth rest =
       let ind = (count_spaces line 0) in
-      (*let () = Printf.printf "nb spaces : %d\n" ind in*)
-      if (ind mod 2 <> 0) then
+      (* let () = Printf.printf "line : " in
+      let () = List.iter (Printf.printf "%s ") line in
+      let () = Printf.printf "\nnb spaces : %d\ndepth : %d\n" ind depth in *)
+      if (ind mod 2 <> 0) || (ind / 2 <> depth) then
         raise WrongIndentation
       else
         let ind = ind/2 in
