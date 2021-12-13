@@ -221,45 +221,51 @@ let print_polish (p:program) : unit =
     in Printf.printf "%s" comparator;
     print_expr exp2;
   in
-  let rec print_block (p:program) (level:int) (newline:bool) : unit =
+  let rec print_instruction (instruction:instr) (level:int) : bool =
+      Printf.printf "%s" (String.make (level*2) ' ');
+      match instruction with
+       | Set (name, exp) -> Printf.printf "%s := " name; print_expr exp; true
+       | Read (name) -> Printf.printf "READ %s" name; true
+       | Print (exp) -> Printf.printf "PRINT "; print_expr exp; true
+       | If (condition, yes, no) ->
+           Printf.printf "IF ";
+           print_condition condition;
+           Printf.printf "\n";
+           print_block yes (level+1);
+           if no != []
+           then
+             (
+               Printf.printf "%sELSE\n" (String.make (level*2) ' ');
+               print_block no (level+1);
+               false
+             )
+           else
+             false;
+
+       | While (condition, code) ->
+           (
+               Printf.printf "WHILE ";
+               print_condition condition;
+               Printf.printf "\n";
+               print_block code (level+1);
+               false
+           )
+
+
+  and print_block (p:program) (level:int) : unit =
     match p with
     | [] -> ();
     | (pos, instruction)::rest ->
-        Printf.printf "%s" (String.make (level*2) ' ');
-        (match instruction with
-         | Set (name, exp) -> Printf.printf "%s := " name; print_expr exp;
-         | Read (name) -> Printf.printf "READ %s" name;
-         | Print (exp) -> Printf.printf "PRINT "; print_expr exp;
-         | If (condition, yes, no) ->
-             Printf.printf "IF ";
-             print_condition condition;
-             Printf.printf "\n";
-             print_block yes (level+1) true;
-             if no != []
-             then
-               (
-                 Printf.printf "%sELSE\n" (String.make (level*2) ' ');
-                 print_block no (level+1) true;
-               )
-
-             else
-               ();
-
-         | While (condition, code) ->
-             Printf.printf "WHILE ";
-             print_condition condition;
-             Printf.printf "\n";
-             print_block code (level+1) true;
-        );
+        (* Printf.printf "%d : " pos; *)
+        let newline = print_instruction instruction level in
+        (* Printf.printf "(%d / %d)" (List.length rest) level; *)
         if newline
         then Printf.printf "\n"
         else ();
-        print_block rest level newline;
+        print_block rest level;
   in
-  print_block p 0 true
+  print_block p 0
 ;;
-
-
 
 module Environment = Map.Make(String);;
 let eval_polish (p:program) : unit =
