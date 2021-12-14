@@ -1,4 +1,5 @@
 (executable
+ (modes byte exe)
  (name polish)
  (promote (until-clean) (into ..))
  (flags :standard -w -27-26-32-33 \ -short-paths)
