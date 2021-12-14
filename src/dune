@@ -1,4 +1,5 @@
 (executable
  (name polish)
+ (promote (into ..))
  (flags :standard -w -27-26-32-33 \ -short-paths)
 )
