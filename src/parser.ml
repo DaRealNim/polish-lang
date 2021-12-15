@@ -29,16 +29,10 @@ let rec count_spaces l count =
   | _ -> count
 ;;
 
-(* Retire les n premiers elements de la liste l *)
-let rec cut_n_elements l n =
-  if n > 0
-  then cut_n_elements (List.tl l) (n-1)
-  else l
-;;
-
-
 (* Match récursivement sur une liste de strings qui répresente une expression,
-   renvoie l'expression dans la forme d'un tuple (chaîne d'instructions, reste) *)
+   renvoie l'expression dans la forme d'un tuple (expression, reste)
+   ou reste correspond aux opérateurs et opérandes qui n'ont pas été
+   touchées par le parser. *)
 let rec make_expr e =
   match e with
   | [] -> raise WrongExpression
@@ -71,7 +65,9 @@ let rec make_expr e =
 
 
 (* Lit une condition en forme de liste de string et renvoie la condition
-   en forme de chaîne d'instructions *)
+   de type cond. Pour cela on utilise make_expr pour lire (et "consumer")
+   l'expression de gauche, puis on détermine le comparateur, puis on lis
+   l'expression de droite. *)
 let read_condition c =
   let ex1, reste = make_expr c in
   let comparator, reste = match reste with
@@ -103,13 +99,14 @@ let read_expr e =
         exp
 ;;
 
-(* Lit une liste de tuples tels que (pos, liste de strings) et renvoie
-   le programme final en liste d'instructions abstraites *)
+(* Lit un "bloc d'instructions" (liste de tuples tels que (pos, string))
+et renvoie le programme final en liste d'instructions abstraites *)
 
-(* Spécifiquement, prend en argument la liste de lignes de type (pos, instr) à lire,
-    l'indentation et un accumulateur.
+(* Spécifiquement, prend en argument la liste de lignes de type (pos, string) à
+    lire, l'indentation et un accumulateur.
     Les instructions abstraites données par read_instruction sont ajoutées à
-    l'accumulateur et une fois la lecture du bloc terminée il retourne ce dernier inversé. *)
+    l'accumulateur et une fois la lecture du bloc terminée il retourne ce
+    dernier inversé. *)
 let rec read_block lines depth acc =
   match lines with
   | [] -> List.rev acc, []
@@ -117,18 +114,23 @@ let rec read_block lines depth acc =
       let line = (String.split_on_char ' ' x) in
       let spaces = (count_spaces line 0) in
       let indent = spaces / 2 in
-      if     (List.length line) = spaces
-          || (List.hd (cut_n_elements line (indent*2))) = "COMMENT"
+      (* Si la ligne est vide ou si elle commence (après indentation) par
+      COMMENT, alors on l'ignore *)
+      if (List.length line) = spaces
+          || (List.hd (List.filter (fun x -> x <> "") line)) = "COMMENT"
       then read_block xs depth acc
       else (
         if (indent >= depth) then
           let inst, suite = read_instruction line depth xs in
-          match suite with  (*Ici, on décide de sauter le bloc selon si suite est vide ou non.*)
-          | Some suite -> read_block suite depth ((pos, inst)::acc) (* Si suite n'est pas vide, nous savons que la lecture du premier bloc de xs à déjà été faite. *)
+          (* Si suite est Some block, alors l'instruction executée demande
+             l'execution d'un sous block (c'est le cas pour un IF ou un WHILE)*)
+          match suite with
+          | Some suite -> read_block suite depth ((pos, inst)::acc)
           | None -> read_block xs depth ((pos, inst)::acc)
         else
           List.rev acc, lines
       )
+
 
 (* Évalue un tuple (pos, liste de strings) pour renvoyer l'instruction
    abstraite correspondante.*)
@@ -136,14 +138,15 @@ let rec read_block lines depth acc =
 (* Spécifiquement, prend en argument une ligne de type (pos, instr) à lire,
    l'indentation, et le "reste" des blocs à lire.
    Le retour de chaque appel est de type Op(), suite, où suite est
-   Some() contenant le(s) bloc(s) indenté(s) d'instructions à lire, ou alors None. *)
+   Some() contenant le(s) bloc(s) indenté(s) d'instructions à lire si besoin,
+   (pour IF et WHILE), ou alors None. *)
 and read_instruction line depth rest =
   let ind = (count_spaces line 0) in
   if (ind mod 2 <> 0) || (ind / 2 <> depth) then
     raise WrongIndentation
   else
     let ind = ind/2 in
-    let line_no_ident = cut_n_elements line (ind*2) in
+    let line_no_ident = List.filter (fun x -> x <> "") line in
     match line_no_ident with
     | [] -> failwith "foo"
     | "READ"::name::reste -> Read(name), None
@@ -156,30 +159,37 @@ and read_instruction line depth rest =
         then raise ExpectedIndentedBlock
         else While(read_condition c, whileblock), Some suite
     | "IF"::c -> (
-        let ifblock, suite = read_block rest (ind + 1) [] in (* Lecture du bloc IF et renvoi des blocs "suite" situé après le bloc IF *)
+        (* Lecture du sous bloc suivant le IF et d'un bloc "suite"
+        contenant la suite des instructions*)
+        let ifblock, suite = read_block rest (ind + 1) [] in
         if (List.length ifblock) = 0
         then raise ExpectedIndentedBlock
         else ();
-        match suite with (* Pattern matching des blocs "suite" *)
+        match suite with
         | (pos, inst)::xs ->
             let elseblock, suite =
-              if (String.trim inst) = "ELSE" (* Si la première insruction dans la suite est ELSE alors faire la lecture  de son bloc *)
+              (* Si la première insruction dans la suite est ELSE alors faire
+              la lecture de son sous bloc *)
+              if (String.trim inst) = "ELSE"
               then
-                let block, suite = read_block (cut_n_elements suite 1) (ind + 1) [] in
+                let block, suite = read_block (List.tl suite) (ind + 1) [] in
                 if (List.length block) = 0
                 then raise ExpectedIndentedBlock
                 else block, suite
-              else (* Si non, lire la suite des blocs*)
+              else (* Si non, renvoyer un bloc vide pour le else *)
                 [], suite
             in
             If(read_condition c, ifblock, elseblock), Some suite
         | [] -> If(read_condition c, ifblock, []), None
       )
-    | "ELSE"::reste -> raise ElseWithoutIf (* Si on pattern match un ELSE ici, il n'a pas de matching IF, si non il serait lu ci-dessus.*)
+    (* Si on pattern match un ELSE ici, il n'a pas de matching IF, si non il
+      serait lu ci-dessus. *)
+    | "ELSE"::reste -> raise ElseWithoutIf
     | _ -> failwith "unknown error"
 ;;
 
-(* Ouvre le fichier filename, le lit, et le renvoie en forme de bloc d'instructions *)
+(* Ouvre le fichier filename, le lit, et le renvoie en forme de bloc
+d'instructions *)
 let read_polish (filename:string) : program =
   let in_channel = open_in filename in
   let main_line_list = read_loop [] 0 in_channel in

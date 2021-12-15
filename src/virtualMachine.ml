@@ -6,6 +6,8 @@ open AbstractSyntax;;
 
 module Environment = Map.Make(String);;
 
+(* Tente l'accès à la valeur de la variable var dans l'environment e. Affiche
+une erreur si la variable n'a pas été ininialisée précédemment*)
 let get_variable (var:name) (e:int Environment.t) =
   let v = Environment.find_opt var e in
   match v with
@@ -13,7 +15,8 @@ let get_variable (var:name) (e:int Environment.t) =
   | None -> failwith (Printf.sprintf "Error: accessed variable %s before setting it" var)
 ;;
 
-(* Prend une opération/expression en forme abstraite et renvoie sa valeur *)
+(* Prend une opération/expression en forme abstraite, l'évalue en fonction de
+l'environement, et renvoie sa valeur *)
 let rec eval_operation (operator:op) (ex1:expr) (ex2:expr) (env:int Environment.t) =
   match operator with
   | Add -> (eval_expression ex1 env) + (eval_expression ex2 env)
@@ -37,7 +40,8 @@ and eval_expression (ex:expr) (env:int Environment.t) =
   | Op(operator, ex1, ex2) -> eval_operation operator ex1 ex2 env
 ;;
 
-(* Prend une condition en forme abstraite et renvoie sa valeur booléenne *)
+(* Prend une condition en forme abstraite, l'évalue en fonction de
+l'environement et renvoie sa valeur booléenne *)
 let eval_condition (c:cond) (env:int Environment.t) =
   match c with
   | (exp1, comparator, exp2) ->
