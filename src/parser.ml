@@ -15,6 +15,8 @@ let try_read channel =
   try Some (input_line channel) with End_of_file -> None
 ;;
 
+(* Lis un fichier in_channel et renvoie son contenu en forme de
+   liste de tuples (ligne, liste de strings) *)
 let rec read_loop acc i channel =
   match try_read channel with
   | Some s -> read_loop ((i, s)::acc) (i + 1) channel
@@ -27,6 +29,7 @@ let rec count_spaces l count =
   | _ -> count
 ;;
 
+(* Retire les n premiers elements de la liste l *)
 let rec cut_n_elements l n =
   if n > 0
   then cut_n_elements (List.tl l) (n-1)
@@ -34,6 +37,8 @@ let rec cut_n_elements l n =
 ;;
 
 
+(* Match récursivement sur une liste de strings qui répresente une expression,
+   renvoie l'expression dans la forme d'un tuple (chaîne d'instructions, reste) *)
 let rec make_expr e =
   match e with
   | [] -> raise WrongExpression
@@ -65,6 +70,8 @@ let rec make_expr e =
 ;;
 
 
+(* Lit une condition en forme de liste de string et renvoie la condition
+   en forme de chaîne d'instructions *)
 let read_condition c =
   let ex1, reste = make_expr c in
   let comparator, reste = match reste with
@@ -83,6 +90,9 @@ let read_condition c =
 ;;
 
 
+(* Prend une liste de strings representant une expression et forme un
+   tuple (chaîne d'instructions, reste), si l'expression est bien formée,
+   (c.à.d si reste est vide), renvoie l'expression *)
 let read_expr e =
   let expr = make_expr e in
   match expr with
@@ -93,7 +103,8 @@ let read_expr e =
         exp
 ;;
 
-
+(* Lis une liste de tuples tels que (pos, liste de strings) et renvoie
+  le programme final en liste d'instructions abstraites *)
 let rec read_block lines depth acc =
   match lines with
   | [] -> List.rev acc, []
@@ -114,6 +125,8 @@ let rec read_block lines depth acc =
           List.rev acc, lines
       )
 
+(* Évalue une un tuple (pos, liste de strings) pour renvoyer l'instruction
+   abstraite correspondante *)
 and read_instruction line depth rest =
   let ind = (count_spaces line 0) in
   if (ind mod 2 <> 0) || (ind / 2 <> depth) then
@@ -156,7 +169,7 @@ and read_instruction line depth rest =
     | _ -> failwith "unknown error"
 ;;
 
-
+(* Ouvre le fichier filename, le lit, et le renvoie en forme de bloc d'instructions *)
 let read_polish (filename:string) : program =
   let in_channel = open_in filename in
   let main_line_list = read_loop [] 0 in_channel in

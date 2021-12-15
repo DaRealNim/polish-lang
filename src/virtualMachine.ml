@@ -13,7 +13,7 @@ let get_variable (var:name) (e:int Environment.t) =
   | None -> failwith (Printf.sprintf "Error: accessed variable %s before setting it" var)
 ;;
 
-
+(* Prend une opération/expression en forme abstraite et renvoie sa valeur *)
 let rec eval_operation (operator:op) (ex1:expr) (ex2:expr) (env:int Environment.t) =
   match operator with
   | Add -> (eval_expression ex1 env) + (eval_expression ex2 env)
@@ -37,7 +37,7 @@ and eval_expression (ex:expr) (env:int Environment.t) =
   | Op(operator, ex1, ex2) -> eval_operation operator ex1 ex2 env
 ;;
 
-
+(* Prend une condition en forme abstraite et renvoie sa valeur booléenne *)
 let eval_condition (c:cond) (env:int Environment.t) =
   match c with
   | (exp1, comparator, exp2) ->
@@ -52,7 +52,7 @@ let eval_condition (c:cond) (env:int Environment.t) =
       | Ge -> valexp1 >= valexp2
 ;;
 
-
+(* Exécute une insruction en forme abstraite*)
 let rec eval_instruction (i:instr) (e:int Environment.t) =
   match i with
   | Set (n, ex) -> Environment.add n (eval_expression ex e) e
@@ -73,7 +73,7 @@ let rec eval_instruction (i:instr) (e:int Environment.t) =
       if (eval_condition cond e)
       then (eval_block blockRepeat e) |> eval_instruction i
       else e
-
+(* Exécute les insructions d'un bloc *)
 and eval_block (b:block) (e:int Environment.t) =
   match b with
   | [] -> e

@@ -4,6 +4,7 @@ syntaxe abstraite. *)
 
 open AbstractSyntax;;
 
+(* Prend une expression en forme abstraite et l'affiche en forme de string sur stdout *)
 let rec print_expr (e:expr) : unit =
   match e with
   | Num(x) -> Printf.printf "%d " x
@@ -18,7 +19,7 @@ let rec print_expr (e:expr) : unit =
       in Printf.printf "%s" operator; print_expr x; print_expr y
 ;;
 
-
+(* Idem mais une condition *)
 let print_condition (c:cond) : unit =
   let (exp1, op, exp2) = c in
   print_expr exp1;
@@ -34,6 +35,7 @@ let print_condition (c:cond) : unit =
 ;;
 
 
+(* Idem mais une instruction *)
 let rec print_instruction (instruction:instr) (level:int) : bool =
   Printf.printf "%s" (String.make (level*2) ' ');
   match instruction with
@@ -64,13 +66,13 @@ let rec print_instruction (instruction:instr) (level:int) : bool =
         false
       )
 
+(* Prend un programme en entrée de forme d'une liste de tuples (pos, liste de strings) et l'affiche
+   en forme de string sur stdout. *)
 and print_block (p:program) (level:int) : unit =
   match p with
   | [] -> ();
   | (pos, instruction)::rest ->
-      (* Printf.printf "%d : " pos; *)
       let newline = print_instruction instruction level in
-      (* Printf.printf "(%d / %d)" (List.length rest) level; *)
       if newline
       then Printf.printf "\n"
       else ();
