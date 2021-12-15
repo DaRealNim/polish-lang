@@ -103,8 +103,13 @@ let read_expr e =
         exp
 ;;
 
-(* Lis une liste de tuples tels que (pos, liste de strings) et renvoie
-  le programme final en liste d'instructions abstraites *)
+(* Lit une liste de tuples tels que (pos, liste de strings) et renvoie
+   le programme final en liste d'instructions abstraites *)
+
+(* Spécifiquement, prend en argument la liste de lignes de type (pos, instr) à lire,
+    l'indentation et un accumulateur.
+    Les instructions abstraites données par read_instruction sont ajoutées à
+    l'accumulateur et une fois la lecture du bloc terminée il retourne ce dernier inversé. *)
 let rec read_block lines depth acc =
   match lines with
   | [] -> List.rev acc, []
@@ -118,15 +123,20 @@ let rec read_block lines depth acc =
       else (
         if (indent >= depth) then
           let inst, suite = read_instruction line depth xs in
-          match suite with
-          | Some suite -> read_block suite depth ((pos, inst)::acc)
+          match suite with  (*Ici, on décide de sauter le bloc selon si suite est vide ou non.*)
+          | Some suite -> read_block suite depth ((pos, inst)::acc) (* Si suite n'est pas vide, nous savons que la lecture du premier bloc de xs à déjà été faite. *)
           | None -> read_block xs depth ((pos, inst)::acc)
         else
           List.rev acc, lines
       )
 
-(* Évalue une un tuple (pos, liste de strings) pour renvoyer l'instruction
-   abstraite correspondante *)
+(* Évalue un tuple (pos, liste de strings) pour renvoyer l'instruction
+   abstraite correspondante.*)
+
+(* Spécifiquement, prend en argument une ligne de type (pos, instr) à lire,
+   l'indentation, et le "reste" des blocs à lire.
+   Le retour de chaque appel est de type Op(), suite, où suite est
+   Some() contenant le(s) bloc(s) indenté(s) d'instructions à lire, ou alors None. *)
 and read_instruction line depth rest =
   let ind = (count_spaces line 0) in
   if (ind mod 2 <> 0) || (ind / 2 <> depth) then
@@ -146,26 +156,26 @@ and read_instruction line depth rest =
         then raise ExpectedIndentedBlock
         else While(read_condition c, whileblock), Some suite
     | "IF"::c -> (
-        let ifblock, suite = read_block rest (ind + 1) [] in
+        let ifblock, suite = read_block rest (ind + 1) [] in (* Lecture du bloc IF et renvoi des blocs "suite" situé après le bloc IF *)
         if (List.length ifblock) = 0
         then raise ExpectedIndentedBlock
         else ();
-        match suite with
+        match suite with (* Pattern matching des blocs "suite" *)
         | (pos, inst)::xs ->
             let elseblock, suite =
-              if (String.trim inst) = "ELSE"
+              if (String.trim inst) = "ELSE" (* Si la première insruction dans la suite est ELSE alors faire la lecture  de son bloc *)
               then
                 let block, suite = read_block (cut_n_elements suite 1) (ind + 1) [] in
                 if (List.length block) = 0
                 then raise ExpectedIndentedBlock
                 else block, suite
-              else
+              else (* Si non, lire la suite des blocs*)
                 [], suite
             in
             If(read_condition c, ifblock, elseblock), Some suite
         | [] -> If(read_condition c, ifblock, []), None
       )
-    | "ELSE"::reste -> raise ElseWithoutIf
+    | "ELSE"::reste -> raise ElseWithoutIf (* Si on pattern match un ELSE ici, il n'a pas de matching IF, si non il serait lu ci-dessus.*)
     | _ -> failwith "unknown error"
 ;;
 
