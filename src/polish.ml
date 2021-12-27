@@ -5,6 +5,7 @@ open AbstractSyntax;;
 open Parser;;
 open Printer;;
 open VirtualMachine;;
+open Simplifier;;
 
 let usage () =
   print_string "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⡯⠀⠀⠀⢠⡐⠀⠀⠀⠀⠀Polish Cow\n";
@@ -29,6 +30,7 @@ let main () =
   match Sys.argv with
   | [|_;"--reprint";file|] -> print_polish (read_polish file)
   | [|_;"--eval";file|] -> eval_polish (read_polish file)
+  | [|_;"--simpl";file|] -> read_polish file |> simplify_polish |> print_polish
   | _ -> usage ()
 
 (* lancement de ce main *)

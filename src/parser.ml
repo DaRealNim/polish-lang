@@ -180,7 +180,7 @@ and read_instruction line depth rest =
                 [], suite
             in
             If(read_condition c, ifblock, elseblock), Some suite
-        | [] -> If(read_condition c, ifblock, []), None
+        | [] -> If(read_condition c, ifblock, []), Some []
       )
     (* Si on pattern match un ELSE ici, il n'a pas de matching IF, si non il
       serait lu ci-dessus. *)
