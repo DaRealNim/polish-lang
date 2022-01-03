@@ -22,13 +22,17 @@ let applyComparator (c:comp) (a:int) (b:int) =
 
 let simplify_obvious_operation (operator:op) (e1:expr) (e2:expr) =
   match operator with
-  | Add | Sub ->
+  | Add ->
     if e1 = Num 0
     then Some e2
     else
       if e2 = Num 0
       then Some e1
       else None
+  | Sub ->
+    if e2 = Num 0
+    then Some e1
+    else None
   | Mul -> (
     match e1 with
     | Num 0 -> Some (Num 0)
@@ -70,7 +74,7 @@ let rec simplify_expr (ex : expr) =
   | x -> x
 ;;
 
-let simplify_if_or_while (isIf:bool) (c:cond) (bt:block) (bf:block) (pos:int) =
+let rec simplify_if_or_while (isIf:bool) (c:cond) (bt:block) (bf:block) (pos:int) =
   let condE1, comparator, condE2 = c in
   let sCondE1 = simplify_expr condE1 in
   let sCondE2 = simplify_expr condE2 in
@@ -79,19 +83,18 @@ let simplify_if_or_while (isIf:bool) (c:cond) (bt:block) (bf:block) (pos:int) =
     if (applyComparator comparator a b)
     then
       if isIf
-      then bt
-      else [pos, While(c, bt)]
+      then simplify_polish bt
+      else [pos, While(c, simplify_polish bt)]
     else
       if isIf
-      then bf
+      then simplify_polish bf
       else []
   | _, _ ->
     if isIf
-    then [pos, If(c, bt, bf)] 
-    else [pos, While(c, bt)]
-;;
+    then [pos, If(c, simplify_polish bt, simplify_polish bf)] 
+    else [pos, While(c, simplify_polish bt)]
 
-let rec simplify_polish (p : program) =
+and simplify_polish (p : program) =
   let rec aux prog finalprog =
     if prog = []
     then finalprog
@@ -101,8 +104,8 @@ let rec simplify_polish (p : program) =
       let newInst = match inst with
       | Set(n, e) -> [pos, Set(n, simplify_expr e)]
       | Print(e) -> [pos, Print(simplify_expr e)]
-      | If(c, bt, bf) -> simplify_polish (simplify_if_or_while true c bt bf pos)
-      | While(c, b) -> simplify_polish (simplify_if_or_while false c b [] pos)
+      | If(c, bt, bf) -> (simplify_if_or_while true c bt bf pos)
+      | While(c, b) -> (simplify_if_or_while false c b [] pos)
       | Read(name) -> [pos, Read(name)]
       in aux rest (finalprog @ newInst)
   in
