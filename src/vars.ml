@@ -2,61 +2,72 @@ open AbstractSyntax;;
 open Set;;
 open Printf;;
 
-module Names = Set.Make(String)
-let rec vars_expr_opt e =
+module Vars = Set.Make(String)
+
+(* Parse une expression et renvoie une liste de ses variables *)
+let rec vars_expr e =
 	match e with
 		| Var(name) -> [name]
 		| Num(_) -> []
-		| Op(op,expr1,expr2) -> vars_expr_opt expr1 @ vars_expr_opt expr2
+		| Op(op,expr1,expr2) -> vars_expr expr1 @ vars_expr expr2
 
-let vars_cond_opt c =
+(* Parse une condition et renvoie une liste de ses variables *)
+let vars_cond c =
 	let (e1, _, e2) = c in
-	vars_expr_opt e1 @ vars_expr_opt e2
+	vars_expr e1 @ vars_expr e2
 
-(* Renvoie une liste avec les éléments de list absents de set*)
+(* Renvoie une liste avec les éléments de list absents de set *)
 let absent_elts set list =
-	List.filter (fun x -> not (Names.mem x set)) list
+	List.filter (fun x -> not (Vars.mem x set)) list
 
+(* Rajoute les éléments de la liste varList non inclus dans vars 
+ * dans l'ensemble badVars et renvoie badVars *)
+let add_bad_vars vars badVars varList =
+	List.fold_left (fun badVars x -> Vars.add x badVars) badVars (absent_elts vars varList)
 
-(*Rajoute les éléments de la liste namesOpt absents dans names dans l'ensemble badNames et le renvoie*)
-let new_bad_names names badNames nameList =
-	List.fold_left (fun badNames x -> Names.add x badNames) badNames (absent_elts names nameList)
+(* Parse le bloc if d'un programme pour chercher ses variables principales,  
+ * subvariables et variables dangereuses *)
+let rec if_block_vars (p : program) vars subBlockVars badVars tb fb =
+	let varsTB, subVarsTB, badVarsTB = vars_block tb vars subBlockVars badVars in
+	let varsFB, subVarsFB, badVarsFB = vars_block fb vars subBlockVars badVars in
 
-let add_good_subs names subNames badNames =
-	Names.union names (Names.diff subNames badNames)
+	let varsUnion = (Vars.union varsTB varsFB) in
+	let subVarsInter = (Vars.inter subVarsTB subVarsFB) in
+	let badVarsUnion = (Vars.union badVarsTB badVarsFB) in
 
-let rec if_and_while (p : program) names subNames badNames bt bf =
-	let names1, subNames1, badNames1 = vars_block bt names subNames badNames in
-	let names2, subNames2, badNames2 = vars_block bf names subNames badNames in
-	let namesUnion = (Names.union names1 names2) in
-	let subNamesUnion = (Names.union subNames1 subNames2) in
-	let badNamesUnion = (Names.union badNames1 badNames2) in
-	(namesUnion , (Names.inter subNames1 subNames2), Names.union badNames1 badNames2)
-
-and vars_block (p : program) names subNames badNames =
+	(varsUnion, subVarsInter, badVarsUnion)
+(* Parse un programme et renvoie un tuple de la forme (vars, subBlockVars, badVars) 
+ * où les noms dans vars sont dans le bloc principal,
+ * celles de subBlockVars dans des sous-blocs et du bloc principal,
+ * et badVars celles qui risquent de provoquer une erreur d'accès *)	
+and vars_block (p : program) vars subBlockVars badVars =
 	if p = [] then
-		(names, subNames, badNames)
+		(vars, subBlockVars, badVars)
 	else
-		let pos, instr = List.hd p in
+		let _, instr = List.hd p in
 		let rest = List.tl p in
 		match instr with
-			| If(c, bt ,bf) -> 
-				let cBadNames = new_bad_names names badNames (vars_cond_opt c) in
-				let setNames, setSubNames, setBadNames = (if_and_while p names subNames cBadNames bt bf) in
-				vars_block rest setNames setSubNames setBadNames
-			| While(c, b) -> 
-				let cBadNames = new_bad_names names badNames (vars_cond_opt c) in
-				let setNames, setSubNames, setBadNames = (if_and_while p names subNames cBadNames b []) in
-				vars_block rest setNames setSubNames setBadNames
-			| Read(name) -> vars_block rest (Names.add name names) (Names.add name subNames) badNames
-			| Set(name, e) -> let newNames = (Names.add name names) in
-			vars_block rest newNames (Names.add name subNames) (new_bad_names subNames badNames (vars_expr_opt e))
-			| Print(e) -> vars_block rest names subNames (new_bad_names subNames badNames (vars_expr_opt e))
+			| If(cond, tb, fb) -> 
+				let condBadVars = add_bad_vars vars badVars (vars_cond cond) in
+				let blockVars, blockSubVars, blockBadVars = (if_block_vars p vars subBlockVars condBadVars tb fb) in
+				vars_block rest blockVars blockSubVars blockBadVars
+			| While(cond, b) -> 
+				let condBadVars = add_bad_vars vars badVars (vars_cond cond) in
+				vars_block b vars subBlockVars condBadVars
+			| Read(name) -> vars_block rest (Vars.add name vars) (Vars.add name subBlockVars) badVars
+			| Set(name, e) -> 
+				let newVars = (Vars.add name vars) in
+				let newSubVars = (Vars.add name subBlockVars) in
+				let newBadVars = add_bad_vars subBlockVars badVars (vars_expr e) in
+				vars_block rest newVars newSubVars newBadVars
+			| Print(e) -> vars_block rest vars subBlockVars (add_bad_vars subBlockVars badVars (vars_expr e))
 ;;
 
+(* Affiche toutes les variables d'un programme dans une ligne, et celles
+ * potentiellement dangereuses dans une deuxième *)
 let vars_polish (p : program) =
-	let (names, subNames, badNames) = vars_block p Names.empty Names.empty Names.empty in
-	let names2 = add_good_subs names subNames badNames in
-	Seq.iter (fun x -> printf "%s " x) (Names.to_seq (Names.union names2 badNames));
+	let (vars, subBlockVars, badVars) = vars_block p Vars.empty Vars.empty Vars.empty in
+	let allVars = Vars.union (Vars.union vars subBlockVars) badVars in
+	Seq.iter (fun x -> printf "%s " x) (Vars.to_seq allVars);
 	printf("\n");
-	Seq.iter (fun x -> printf "%s " x) (Names.to_seq badNames)
+	Seq.iter (fun x -> printf "%s " x) (Vars.to_seq badVars)
