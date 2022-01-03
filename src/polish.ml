@@ -6,6 +6,7 @@ open Parser;;
 open Printer;;
 open VirtualMachine;;
 open Simplifier;;
+open Vars;;
 
 let usage () =
   print_string "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⡯⠀⠀⠀⢠⡐⠀⠀⠀⠀⠀Polish Cow\n";
@@ -31,6 +32,7 @@ let main () =
   | [|_;"--reprint";file|] -> print_polish (read_polish file)
   | [|_;"--eval";file|] -> eval_polish (read_polish file)
   | [|_;"--simpl";file|] -> read_polish file |> simplify_polish |> print_polish
+  | [|_;"--vars";file|] -> read_polish file |> simplify_polish |> vars_polish
   | _ -> usage ()
 
 (* lancement de ce main *)

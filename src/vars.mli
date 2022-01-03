@@ -1,4 +1,3 @@
 open AbstractSyntax;;
-open Set;;
 
-val vars_polish : program -> program
+val vars_polish : program -> unit
