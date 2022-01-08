@@ -138,7 +138,20 @@ let get_sub_sign firstSet secondSet =
 
 let div_signs_table = mul_signs_tab;;
 
-let get_div_sign firstSet secondSet =
+let mod_signs_table = 
+  [
+    ((pos, pos), poszero);
+    ((neg, neg), negzero);
+    ((neg, pos), negzero);
+    ((pos, neg), poszero);
+    ((posneg, pos), all);
+    ((pos, posneg), poszero);
+    ((posneg, neg), all);
+    ((neg, posneg), negzero);
+    ((posneg, posneg), all);
+  ];;
+
+let get_div_mod_sign firstSet secondSet isMod =
   if secondSet = zero
   then error
   else
@@ -146,7 +159,11 @@ let get_div_sign firstSet secondSet =
       if firstSet = zero
       then zero
       else
-        let comb = get_comb mul_signs_tab
+        let tab = if isMod
+                  then mod_signs_table
+                  else div_signs_table
+        in
+        let comb = get_comb tab
             (SignSet.remove Zero firstSet)
             (SignSet.remove Zero secondSet)
             true

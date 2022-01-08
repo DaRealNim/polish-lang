@@ -12,4 +12,4 @@ val get_mul_sign : Set.Make(Sign).t -> Set.Make(Sign).t -> Set.Make(Sign).t
 
 val get_sub_sign : Set.Make(Sign).t -> Set.Make(Sign).t -> Set.Make(Sign).t
 
-val get_div_sign : Set.Make(Sign).t -> Set.Make(Sign).t -> Set.Make(Sign).t
+val get_div_mod_sign : Set.Make(Sign).t -> Set.Make(Sign).t -> bool -> Set.Make(Sign).t

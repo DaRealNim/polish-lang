@@ -20,8 +20,8 @@ let parse_op op sign1 sign2 =
   | Add -> get_add_sign sign1 sign2
   | Sub -> get_sub_sign sign1 sign2
   | Mul -> get_mul_sign sign1 sign2
-  | Div -> get_div_sign sign1 sign2
-  | Mod -> SignSet.empty
+  | Div -> get_div_mod_sign sign1 sign2 false
+  | Mod -> get_div_mod_sign sign1 sign2 true
   
 let rec parse_expr e env =
   match e with
