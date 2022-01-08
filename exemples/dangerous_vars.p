@@ -1,3 +1,7 @@
+COMMENT Ce programme permet le test de l'options --vars de polish: il déclare et fait
+COMMENT des opérations sur des variables, parfois de manière dangereuse, c'est a dire
+COMMENT que certaines variables sont (ou peuvent êtres) lues avant d'être assignées.
+
 good1 := 1
 READ good2
 

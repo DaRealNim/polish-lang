@@ -7,6 +7,7 @@ open Printer;;
 open VirtualMachine;;
 open Simplifier;;
 open Vars;;
+open Signs;;
 
 let usage () =
   print_string "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⡯⠀⠀⠀⢠⡐⠀⠀⠀⠀⠀Polish Cow\n";
