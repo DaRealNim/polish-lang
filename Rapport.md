@@ -118,6 +118,7 @@ finale quand cela est possible.
 
 # Organisation du travail
 -- RENDU 1 --
+
 Le différentes taches à réaliser sur ce projet ont été un effort collectif. Ce
 projet étant une introduction au monde des langages, de l'analyse syntaxique,
 des interpréteurs, etc... pour les deux membres du groupe, un gros travail de
@@ -146,4 +147,4 @@ La réalisation du deuxième rendu s'est déroulée de façon à peu près équi
 
 Benjamin Maudet a travaillé sur le module **Simplifier** et Claudio Teixeira 
 a travaillé sur le module **Vars**. Le module **Signs** est dans sa grande 
-majorité le résultat d'une programmation par binôme.
+majorité le résultat d'une programmation par binôme.s.
