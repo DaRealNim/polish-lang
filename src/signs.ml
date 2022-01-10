@@ -65,12 +65,12 @@ let get_assoc li s1 s2 =
     (fun sign1 acc ->
       SignSet.fold
       (fun sign2 acc2 ->
-        let s1', s2' = acc2 in
+        let accSet1, accSet2 = acc2 in
         let toUnion1, toUnion2 = List.assoc (sign1, sign2) li in
-        (SignSet.union s1' toUnion1, SignSet.union s2' toUnion2)
+        (SignSet.union accSet1 toUnion1, SignSet.union accSet2 toUnion2)
       ) s2 acc
     )
-    s1 (SignSet.empty, SignSet.empty)
+    s1 (SignSet.empty, SignSet.empty) 
   in (s1', s2')
 ;;
 
@@ -107,8 +107,8 @@ let signs_propagate_condition c (env : signenvironment) : bool * bool * signenvi
   let invCompa = compa |> invert_comparator in
   let trueSet1, trueSet2 = spc_aux_signsets s1 compa s2 in
   let falseSet1, falseSet2 = spc_aux_signsets s1 invCompa s2 in
-  let condSat = trueSet1 <> SignSet.empty || trueSet2 <> SignSet.empty in
-  let invCondSat = falseSet1 <> SignSet.empty || falseSet2 <> SignSet.empty in
+  let condSat = trueSet1 <> SignSet.empty && trueSet2 <> SignSet.empty in
+  let invCondSat = falseSet1 <> SignSet.empty && falseSet2 <> SignSet.empty in
   let trueEnv, falseEnv =
     match e1, e2 with
     | Var(v1), Var(v2) ->
