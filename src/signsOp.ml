@@ -3,14 +3,22 @@ open Printf;;
 
 exception NoSignMatch;; 
 
-type sign = Pos | Neg | Zero | Err
-
 module Sign =
 struct
-  type t = sign
+  type t = Pos | Neg | Zero | Err
+  let comp_to_int comp =
+    match comp with
+    | Pos -> 0
+    | Neg -> 1
+    | Zero -> 2
+    | Err -> 3
+  ;;
   let compare x y =
-    if (x = y)
+    let a, b = comp_to_int x, comp_to_int y in
+    if a = b
     then 0
+    else if a < b
+    then -1
     else 1
 end 
 
@@ -19,14 +27,14 @@ module SignSet = Set.Make(Sign);;
 let s_of_l li =
   List.fold_left (fun s e -> SignSet.add e s) SignSet.empty li
 
-let pos = [Pos] |> s_of_l;;
-let neg = [Neg] |> s_of_l;;
-let zero = [Zero] |> s_of_l;;
-let poszero = [Pos; Zero] |> s_of_l;;
-let negzero = [Neg; Zero] |> s_of_l;;
-let error = [Err] |> s_of_l;; 
-let posneg = [Pos; Neg] |> s_of_l;;
-let all = [Pos; Neg; Zero] |> s_of_l;;
+let pos = [Sign.Pos] |> s_of_l;;
+let neg = [Sign.Neg] |> s_of_l;;
+let zero = [Sign.Zero] |> s_of_l;;
+let poszero = [Sign.Pos; Sign.Zero] |> s_of_l;;
+let negzero = [Sign.Neg; Sign.Zero] |> s_of_l;;
+let error = [Sign.Err] |> s_of_l;; 
+let posneg = [Sign.Pos; Sign.Neg] |> s_of_l;;
+let all = [Sign.Pos; Sign.Neg; Sign.Zero] |> s_of_l;;
 
 let rec get_comb li s1 s2 commut = 
   let s1 = SignSet.remove Err s1 in
@@ -43,10 +51,10 @@ let rec get_comb li s1 s2 commut =
 let print_sign_set s =
   let signToString si =
     match si with
-    | Pos -> "+"
-    | Neg -> "-"
-    | Zero -> "0"
-    | Err -> "!"
+    | Sign.Pos -> "+"
+    | Sign.Neg -> "-"
+    | Sign.Zero -> "0"
+    | Sign.Err -> "!"
   in
   SignSet.iter (fun e -> printf "%s" (signToString e)) s;
   print_string "\n"

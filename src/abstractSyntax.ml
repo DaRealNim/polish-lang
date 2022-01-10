@@ -25,6 +25,16 @@ type comp =
   | Gt (* Greater than, > *)
   | Ge (* Greater or equal, >= *)
 
+let invert_comparator c =
+  match c with
+  | Eq -> Ne
+  | Ne -> Eq
+  | Lt -> Ge
+  | Le -> Gt
+  | Gt -> Le
+  | Ge -> Lt
+;;
+
 (** Condition : comparaison entre deux expressions *)
 type cond = expr * comp * expr
 
