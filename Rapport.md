@@ -1,8 +1,9 @@
 # Identifiants
 Les membres du groupes sont :
-| Nom               | Prénom   | Identifiants gitlab | Numéro d'étudiant |<br>
-|-------------------|----------|---------------------|-------------------|<br>
-| Teixeira Medeiros | Claudio  | @teixeirc           | 21953762          |<br>
+
+|       Nom         |  Prénom  | Identifiants gitlab | Numéro d'étudiant |
+|       ---         |  ------  | ------------------- | ----------------- |
+| Teixeira Medeiros | Claudio  | @teixeirc           | 21953762          |
 | Maudet            | Benjamin | DaRealNim, @maudet  | 21957316          |
 
 # Fonctionnalités
