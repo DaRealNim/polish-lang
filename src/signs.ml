@@ -112,34 +112,88 @@ let signs_propagate_condition c (env : signenvironment) : bool * bool * signenvi
   in
   condSat, invCondSat, trueEnv, falseEnv
 ;;
-  
-let rec sign_polish (p : program) (env : SignSet.t SignMap.t) =
-  if p = [] then
-		env
-	else
-		let _, instr = List.hd p in
-		let rest = List.tl p in
-  match instr with
-  | If(cond, tb, fb) -> SignMap.empty
-  | While(cond, b) -> SignMap.empty
-  | Read(name) -> sign_polish rest (SignMap.add name all env)
-  | Set(name, e) -> sign_polish rest (SignMap.add name (signs_expr e env) env)
-  | Print(_) -> sign_polish rest env
+
+let merge_environments key ss1 ss2 =
+  Some (SignSet.union ss1 ss2)
 ;;
 
-let test =
+let rec fixed_point_while_analysis c env bl =
+  let cSat, _, tEnv, _ = signs_propagate_condition c env in
+  let toJoin =
+    if cSat
+    then let tJEnv, _ = signs_bloc bl Int.max_int Int.max_int tEnv in tJEnv
+    else SignMap.empty
+  in
+  let nextEnv = SignMap.union merge_environments env toJoin in
+  if SignMap.equal (fun s1 s2 -> SignSet.equal s1 s2) env nextEnv
+  then nextEnv
+  else fixed_point_while_analysis c nextEnv bl
+and signs_bloc (p : program) (divZeroLine : int) (prevpos : int) (env : SignSet.t SignMap.t) =
+  let divZeroLine =
+    if SignMap.exists (fun key el -> SignSet.mem Sign.Err el) env
+    then min divZeroLine prevpos
+    else divZeroLine
+  in
+  if p = [] then
+		env, divZeroLine
+	else
+		let pos, instr = List.hd p in
+		let rest = List.tl p in
+    match instr with
+    | If(cond, tb, fb) ->
+      let tbSat, fbSat, tEnv, fEnv = signs_propagate_condition cond env in
+      let newEnv1, newDivZ =
+        if tbSat
+        then signs_bloc tb Int.max_int (pos+1) tEnv
+        else SignMap.empty, divZeroLine
+      in
+      let divZeroLine = min divZeroLine newDivZ in
+      let newEnv2, newDivZ =
+        if fbSat
+        then signs_bloc fb Int.max_int (pos+1) fEnv
+        else SignMap.empty, divZeroLine
+      in
+      let divZeroLine = min divZeroLine newDivZ in
+      (SignMap.union merge_environments newEnv1 newEnv2) |> signs_bloc rest divZeroLine pos
+    | While(cond, b) ->
+      let newEnv = fixed_point_while_analysis cond env b in
+      signs_bloc rest divZeroLine pos newEnv
+    | Read(name) -> signs_bloc rest divZeroLine pos (SignMap.add name all env) 
+    | Set(name, e) -> signs_bloc rest divZeroLine pos (SignMap.add name (signs_expr e env) env)
+    | Print(e) -> signs_bloc rest divZeroLine pos env
+;;
+
+let signset_to_string s =
+  let signToString si =
+    match si with
+    | Sign.Pos -> "+"
+    | Sign.Neg -> "-"
+    | Sign.Zero -> "0"
+    | Sign.Err -> "!"
+  in
+  SignSet.fold (fun e acc -> acc ^ (signToString e)) s ""
+;;
+
+let print_env e =
+  SignMap.iter (fun k v -> printf "%s %s\n" k (signset_to_string v)) e
+;;
+
+let signs_polish (p : program) =
+  let env, divZero = signs_bloc p (Int.max_int) 0 SignMap.empty in
+  print_env env;
+  print_string "\n";
+  if divZero == Int.max_int
+  then print_string "safe\n"
+  else printf "possible division by zero\n" (*(divZero+1)*);
+;;
+
+(* let test =
   let c = Var("a"), Ne, Var("b") in
   let e = SignMap.empty |> SignMap.add "a" pos in
   let e = e |> SignMap.add "b" neg in
   let cSat, necSat, tenv, fenv = signs_propagate_condition c e in
   printf "%B\n%B\n" cSat necSat;
-  print_string "a in true env: ";
-  (SignMap.find "a" tenv) |> print_sign_set;
-  print_string "b in true env: ";
-  (SignMap.find "b" tenv) |> print_sign_set;
-  print_string "a in false env: ";
-  (SignMap.find "a" fenv) |> print_sign_set;
-  print_string "b in false env: ";
-  (SignMap.find "b" fenv) |> print_sign_set;
-;;
+  print_env tenv;
+  print_env fenv;
+;; *)
 

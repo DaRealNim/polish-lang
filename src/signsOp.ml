@@ -24,6 +24,18 @@ end
 
 module SignSet = Set.Make(Sign);;
 
+let print_sign_set s =
+  let signToString si =
+    match si with
+    | Sign.Pos -> "+"
+    | Sign.Neg -> "-"
+    | Sign.Zero -> "0"
+    | Sign.Err -> "!"
+  in
+  SignSet.iter (fun e -> printf "%s" (signToString e)) s;
+  print_string "\n"
+;;
+
 let s_of_l li =
   List.fold_left (fun s e -> SignSet.add e s) SignSet.empty li
 
@@ -47,18 +59,6 @@ let rec get_comb li s1 s2 commut =
       then get_comb li s2 s1 false
       else raise NoSignMatch
 ;; 
-
-let print_sign_set s =
-  let signToString si =
-    match si with
-    | Sign.Pos -> "+"
-    | Sign.Neg -> "-"
-    | Sign.Zero -> "0"
-    | Sign.Err -> "!"
-  in
-  SignSet.iter (fun e -> printf "%s" (signToString e)) s;
-  print_string "\n"
-;;
   
 let add_signs_tab = 
   [ 
@@ -72,12 +72,13 @@ let add_signs_tab =
   ] ;; 
 
 let get_add_sign firstSet secondSet = 
-  if firstSet = zero
+  print_string "add\n";
+  if SignSet.equal firstSet zero
   then secondSet
-  else if secondSet = zero
+  else if SignSet.equal secondSet zero
   then firstSet
-  else if firstSet = posneg || firstSet = all
-          || secondSet = posneg || secondSet = all
+  else if SignSet.equal firstSet posneg || SignSet.equal firstSet all
+          || SignSet.equal secondSet posneg || SignSet.equal secondSet all
   then all
   else
     get_comb add_signs_tab firstSet secondSet true 
@@ -94,7 +95,8 @@ let mul_signs_tab =
   ] ;; 
 
 let get_mul_sign firstSet secondSet =
-  if firstSet = zero || secondSet = zero
+  print_string "mul\n";
+  if SignSet.equal firstSet zero || SignSet.equal secondSet zero
   then zero
   else
     let comb = get_comb mul_signs_tab
@@ -133,13 +135,14 @@ let sub_signs_tab =
   ]
 
 let get_sub_sign firstSet secondSet =
-  if secondSet = zero
+  print_string "sub\n";
+  if SignSet.equal secondSet zero
   then firstSet
   else
     let rmZE = (fun s -> s |> SignSet.remove Zero |> SignSet.remove Err) in
     let fS = rmZE firstSet in
     let sS = rmZE secondSet in
-    if fS = posneg || (firstSet <> zero && (sS = posneg))
+    if SignSet.equal fS posneg || (not (SignSet.equal firstSet zero) && (SignSet.equal sS posneg))
     then all
     else get_comb sub_signs_tab firstSet secondSet false
 ;;
@@ -157,14 +160,17 @@ let mod_signs_table =
     ((posneg, neg), all);
     ((neg, posneg), negzero);
     ((posneg, posneg), all);
+    ((all, all), all);
+    ((posneg, all), posneg);
   ];;
 
 let get_div_mod_sign firstSet secondSet isMod =
-  if secondSet = zero
+  print_string "div/mod\n";
+  if SignSet.equal secondSet zero
   then error
   else
     let res =
-      if firstSet = zero
+      if SignSet.equal firstSet zero
       then zero
       else
         let tab = if isMod

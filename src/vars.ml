@@ -70,4 +70,5 @@ let vars_polish (p : program) =
 	let allVars = Vars.union (Vars.union vars subBlockVars) badVars in
 	Seq.iter (fun x -> printf "%s " x) (Vars.to_seq allVars);
 	printf("\n");
-	Seq.iter (fun x -> printf "%s " x) (Vars.to_seq badVars)
+	Seq.iter (fun x -> printf "%s " x) (Vars.to_seq badVars);
+	printf("\n");

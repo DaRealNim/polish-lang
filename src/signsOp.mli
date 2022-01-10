@@ -11,7 +11,6 @@ val error : Set.Make(Sign).t
 val posneg : Set.Make(Sign).t
 val all : Set.Make(Sign).t
 
-val print_sign_set : Set.Make(Sign).t -> unit
 val get_add_sign : Set.Make(Sign).t -> Set.Make(Sign).t -> Set.Make(Sign).t
 val get_mul_sign : Set.Make(Sign).t -> Set.Make(Sign).t -> Set.Make(Sign).t
 val get_sub_sign : Set.Make(Sign).t -> Set.Make(Sign).t -> Set.Make(Sign).t
