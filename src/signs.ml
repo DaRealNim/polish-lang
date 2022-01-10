@@ -7,8 +7,10 @@ open String;;
 module SignSet = Set.Make(Sign);;
 module SignMap = Map.Make(String);;
 
+(** Environement de signes : une map de sets de signes*)
 type signenvironment = SignSet.t SignMap.t;;
 
+(** Retourne le signe du type Sign.t de l'entiers x*)
 let sign_of x =
   if x > 0 then
     Sign.Pos
@@ -18,6 +20,8 @@ let sign_of x =
     Sign.Zero
 ;;
 
+(** Récupère l'ensemble de signes possibles resultant d'une opération op
+sur deux expressions ayant pour signes possibles les ensembles de signes sign1 et sign2*)
 let signs_op op sign1 sign2 =
   match op with
   | Add -> get_add_sign sign1 sign2
@@ -27,6 +31,7 @@ let signs_op op sign1 sign2 =
   | Mod -> get_mod_sign sign1 sign2
 ;;
   
+(** Retourne un ensemble de signes possibles d'une expression selon un environnement*)
 let rec signs_expr e env =
   match e with
 		| Var(name) -> SignMap.find name env
@@ -34,6 +39,8 @@ let rec signs_expr e env =
 		| Op(op,expr1,expr2) -> signs_op op (signs_expr expr1 env) (signs_expr expr2 env)
 ;;
 
+(** Une liste qui associe un couple de signes (a,b) a deux ensembles de signes (s1,s2) 
+pour l'opération a < b *)
 let spc_lt_tab =
   [
     ((Sign.Pos, Sign.Neg), (SignSet.empty, SignSet.empty));
@@ -48,7 +55,9 @@ let spc_lt_tab =
   ];;
 
 
-  (* +-0 < -0*)
+(** Fais l'union des résultats d'une opération sur les signes a et b,
+ou a et b sont toutes les combinaisons des ensembles de signes s1 et s2.
+Le résultat est donné par la liste d'association li *)
 let get_assoc li s1 s2 =
   let s1 = SignSet.remove Err s1 in
   let s2 = SignSet.remove Err s2 in
@@ -65,7 +74,8 @@ let get_assoc li s1 s2 =
   in (s1', s2')
 ;;
 
-(* +-0  <  -0*)
+(** Retourne deux ensembles de signes correspondant aux signes des expressions e1 et e2 dont
+les signes possibles sont les ensembles s1 et s2, après application de l'opérateur compa*)
 let rec spc_aux_signsets s1 compa s2 =
   let revpair = fun (a, b) -> (b, a) in
   match compa with
@@ -83,11 +93,13 @@ let rec spc_aux_signsets s1 compa s2 =
     (SignSet.union s1' s1''), (SignSet.union s2' s2'')
 ;;
 
-(** Va renvoyer bool * bool * env * env, le premier booleen = true si la condition est
-satisfiable dans l'environement donné, le deuxième booleen = true si la négation
-de la condition est satisfiable, le premier environement est celui a
-appliquer dans le bloc "vrai" du if (ou du while), et le deuxième dans le
-bloc "faux" *)
+(** Propage une condition sur un environnement de signes.
+Retourne bool * bool * env * env, le premier booleen = true si la condition est
+satisfiable dans l'environnement donné, le deuxième booleen = true si la négation
+de la condition est satisfiable, le premier environnement est l'environnement correspondant à
+la réussite de la condition, a appliquer dans le bloc "vrai" du if (ou du while),
+et le deuxième correspondant à l'échec de la condition, a appliquer dans le bloc "faux"
+du if.*)
 let signs_propagate_condition c (env : signenvironment) : bool * bool * signenvironment * signenvironment  =
   let e1, compa, e2 = c in
   let s1 = signs_expr e1 env in
@@ -113,10 +125,15 @@ let signs_propagate_condition c (env : signenvironment) : bool * bool * signenvi
   condSat, invCondSat, trueEnv, falseEnv
 ;;
 
+(** Fonction utilitaire a passer a un SignMap.union pour la fusion de deux
+environnements*)
 let merge_environments key ss1 ss2 =
   Some (SignSet.union ss1 ss2)
 ;;
 
+(** Execute une analyse en point fixe d'un bloc while, en prenant sa condition, son bloc
+de code, et l'environnement de départ. Propage la condition sur le bloc de code jusqu'a
+ce que l'environnement ne change plus *)
 let rec fixed_point_while_analysis c env bl =
   let cSat, _, tEnv, _ = signs_propagate_condition c env in
   let toJoin =
@@ -128,6 +145,10 @@ let rec fixed_point_while_analysis c env bl =
   if SignMap.equal (fun s1 s2 -> SignSet.equal s1 s2) env nextEnv
   then nextEnv
   else fixed_point_while_analysis c nextEnv bl
+
+(** Détermine un environnement de signes en fonction d'un bloc de code polish.
+Retourne un environnement, ainsi que la position de la première possible division par 0
+(non stable)*)
 and signs_bloc (p : program) (divZeroLine : int) (prevpos : int) (env : SignSet.t SignMap.t) =
   let divZeroLine =
     if SignMap.exists (fun key el -> SignSet.mem Sign.Err el) env
@@ -141,19 +162,24 @@ and signs_bloc (p : program) (divZeroLine : int) (prevpos : int) (env : SignSet.
 		let rest = List.tl p in
     match instr with
     | If(cond, tb, fb) ->
+      (* On propage la condition sur les blocs true et false.*)
       let tbSat, fbSat, tEnv, fEnv = signs_propagate_condition cond env in
       let newEnv1, newDivZ =
+        (* Si le bloc true est satisfiable, on relance signs_bloc sur le bloc
+        avec le nouvel environnement, sinon, on renvoie le set vide*)
         if tbSat
         then signs_bloc tb Int.max_int (pos+1) tEnv
         else SignMap.empty, divZeroLine
       in
       let divZeroLine = min divZeroLine newDivZ in
       let newEnv2, newDivZ =
+        (* Idem *)
         if fbSat
         then signs_bloc fb Int.max_int (pos+1) fEnv
         else SignMap.empty, divZeroLine
       in
       let divZeroLine = min divZeroLine newDivZ in
+      (* On fusionne les deux environnements générés par le if et on continue l'analyse*)
       (SignMap.union merge_environments newEnv1 newEnv2) |> signs_bloc rest divZeroLine pos
     | While(cond, b) ->
       let newEnv = fixed_point_while_analysis cond env b in
@@ -163,6 +189,8 @@ and signs_bloc (p : program) (divZeroLine : int) (prevpos : int) (env : SignSet.
     | Print(e) -> signs_bloc rest divZeroLine pos env
 ;;
 
+(** Convertit un ensemble de signes en une chaine de caractères avec la représentation
+de chaque signe (+, -, 0, !)*)
 let signset_to_string s =
   let signToString si =
     match si with
@@ -174,10 +202,13 @@ let signset_to_string s =
   SignSet.fold (fun e acc -> acc ^ (signToString e)) s ""
 ;;
 
+(** Affiche un environnement de signes, une variable par ligne*)
 let print_env e =
   SignMap.iter (fun k v -> printf "%s %s\n" k (signset_to_string v)) e
 ;;
 
+(** Lance l'analyse statique du programme passée et affiche l'environnement de signes
+obtenu, ainsi que si une division par zéro est possible*)
 let signs_polish (p : program) =
   let env, divZero = signs_bloc p (Int.max_int) 0 SignMap.empty in
   print_env env;
@@ -186,14 +217,3 @@ let signs_polish (p : program) =
   then print_string "safe\n"
   else printf "possible division by zero\n" (*(divZero+1)*);
 ;;
-
-(* let test =
-  let c = Var("a"), Ne, Var("b") in
-  let e = SignMap.empty |> SignMap.add "a" pos in
-  let e = e |> SignMap.add "b" neg in
-  let cSat, necSat, tenv, fenv = signs_propagate_condition c e in
-  printf "%B\n%B\n" cSat necSat;
-  print_env tenv;
-  print_env fenv;
-;; *)
-

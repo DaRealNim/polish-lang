@@ -148,5 +148,5 @@ La réalisation du deuxième rendu s'est déroulée de façon à peu près équi
 à celle du premier:
 
 Benjamin Maudet a travaillé sur le module **Simplifier** et Claudio Teixeira 
-a travaillé sur le module **Vars**. Le module **Signs** est dans sa grande 
+a travaillé sur le module **Vars**. Le module **Signs** est en 
 majorité le résultat d'une programmation et reflexion du binôme.

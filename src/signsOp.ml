@@ -1,11 +1,20 @@
+(** Ce module rassemble les tableau d'associations ainsi que les fonctions
+pour déterminer le résultat d'une opération sur deux ensembles de signes*)
+
 open Set;; 
 open Printf;;
 
 exception NoSignMatch;; 
 
+(** Un type custom Sign. Une fonction compare y est défini afin d'en faire un
+OrderedType, et qu'il soit accepté par Set, pour faire un SignSet*)
 module Sign =
 struct
   type t = Pos | Neg | Zero | Err
+  
+  (** Pour la fonction compare. Il se trouve que simplement comparer deux signes,
+  e.g Pos = Neg, ne marche pas toujours et posait des problèmes lors des opération sur
+  les ensembles (union, intersections...), on pouvait trouver des doublons.*)
   let comp_to_int comp =
     match comp with
     | Pos -> 0
@@ -24,6 +33,7 @@ end
 
 module SignSet = Set.Make(Sign);;
 
+(** Fonction de débug pour afficher un ensemble de signes*)
 let print_sign_set s =
   let signToString si =
     match si with
@@ -36,19 +46,39 @@ let print_sign_set s =
   print_string "\n"
 ;;
 
+(** Permet la conversions d'une liste de signes en un set de list*)
 let s_of_l li =
   List.fold_left (fun s e -> SignSet.add e s) SignSet.empty li
 
+(* Ici, quelques constantes de sets pour faciliter la lisibilité du code plus bas *)
+
+(** Le set {+} *)
 let pos = [Sign.Pos] |> s_of_l;;
+
+(** Le set {-} *)
 let neg = [Sign.Neg] |> s_of_l;;
+
+(** Le set {0} *)
 let zero = [Sign.Zero] |> s_of_l;;
+
+(** Le set {+, 0} *)
 let poszero = [Sign.Pos; Sign.Zero] |> s_of_l;;
+
+(** Le set {-, 0} *)
 let negzero = [Sign.Neg; Sign.Zero] |> s_of_l;;
+
+(** Le set {!} *)
 let error = [Sign.Err] |> s_of_l;; 
+
+(** Le set {+, -} *)
 let posneg = [Sign.Pos; Sign.Neg] |> s_of_l;;
+
+(** Le set {+, -, 0} *)
 let all = [Sign.Pos; Sign.Neg; Sign.Zero] |> s_of_l;;
 
-
+(** Fais l'union des résultats d'une opération sur les signes a et b,
+ou a et b sont toutes les combinaisons des ensembles de signes s1 et s2.
+Le résultat est donné par la liste d'association li *)
 let compute_signs li s1 s2 =
   let s1 = SignSet.remove Err s1 in
   let s2 = SignSet.remove Err s2 in
@@ -64,6 +94,7 @@ let compute_signs li s1 s2 =
   in res
 ;;
 
+(** Liste d'association de signes pour l'addition *)
 let add_signs_assoclist =
   [
     ((Sign.Pos, Sign.Neg), all);
@@ -81,6 +112,7 @@ let get_add_sign firstSet secondSet =
   compute_signs add_signs_assoclist firstSet secondSet
 ;;
 
+(** Liste d'association de signes pour la multiplication *)
 let mul_signs_assoclist =
   [
     ((Sign.Pos, Sign.Neg), neg);
@@ -98,6 +130,7 @@ let get_mul_sign firstSet secondSet =
   compute_signs mul_signs_assoclist firstSet secondSet
 ;;
 
+(** Liste d'association de signes pour la soustraction *)
 let sub_signs_assoclist =
   [
     ((Sign.Pos, Sign.Neg), pos);
@@ -115,6 +148,7 @@ let get_sub_sign firstSet secondSet =
   compute_signs sub_signs_assoclist firstSet secondSet
 ;;
 
+(** Liste d'association de signes pour la division *)
 let div_signs_assoclist =
   [
     ((Sign.Pos, Sign.Neg), neg);
@@ -128,6 +162,7 @@ let div_signs_assoclist =
     ((Sign.Zero, Sign.Zero), error);
   ];;
 
+(** Liste d'association de signes pour le modulo *)
 let mod_signs_assoclist =
   [
     ((Sign.Pos, Sign.Neg), pos);
