@@ -23,8 +23,8 @@ let signs_op op sign1 sign2 =
   | Add -> get_add_sign sign1 sign2
   | Sub -> get_sub_sign sign1 sign2
   | Mul -> get_mul_sign sign1 sign2
-  | Div -> get_div_mod_sign sign1 sign2 false
-  | Mod -> get_div_mod_sign sign1 sign2 true
+  | Div -> get_div_sign sign1 sign2
+  | Mod -> get_mod_sign sign1 sign2
 ;;
   
 let rec signs_expr e env =
@@ -69,7 +69,7 @@ let get_assoc li s1 s2 =
 let rec spc_aux_signsets s1 compa s2 =
   let revpair = fun (a, b) -> (b, a) in
   match compa with
-  | Eq -> let a = (SignSet.inter s2 s1) in a, a
+  | Eq -> let a = (SignSet.inter s1 s2) in a, a
   | Ne -> let a = SignSet.union (SignSet.diff s1 s2) (SignSet.diff s2 s1) in a,a
   | Lt -> get_assoc spc_lt_tab s1 s2
   | Gt -> revpair (get_assoc spc_lt_tab s2 s1)

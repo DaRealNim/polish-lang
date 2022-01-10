@@ -48,145 +48,103 @@ let error = [Sign.Err] |> s_of_l;;
 let posneg = [Sign.Pos; Sign.Neg] |> s_of_l;;
 let all = [Sign.Pos; Sign.Neg; Sign.Zero] |> s_of_l;;
 
-let rec get_comb li s1 s2 commut = 
+
+let compute_signs li s1 s2 =
   let s1 = SignSet.remove Err s1 in
   let s2 = SignSet.remove Err s2 in
-  let result = List.assoc_opt (s1, s2) li in
-  match result with
-  | Some s -> s
-  | None ->
-      if commut
-      then get_comb li s2 s1 false
-      else raise NoSignMatch
-;; 
-  
-let add_signs_tab = 
-  [ 
-    ((pos, pos), pos);
-    ((neg, neg), neg); 
-    ((pos, neg), all); 
-    ((poszero, pos), pos);
-    ((negzero, pos), all);
-    ((poszero, neg), all);
-    ((negzero, neg), neg); 
-  ] ;; 
-
-let get_add_sign firstSet secondSet = 
-  print_string "add\n";
-  if SignSet.equal firstSet zero
-  then secondSet
-  else if SignSet.equal secondSet zero
-  then firstSet
-  else if SignSet.equal firstSet posneg || SignSet.equal firstSet all
-          || SignSet.equal secondSet posneg || SignSet.equal secondSet all
-  then all
-  else
-    get_comb add_signs_tab firstSet secondSet true 
+  let res = SignSet.fold
+    (fun sign1 acc ->
+      SignSet.fold
+      (fun sign2 acc2 ->
+        let res = List.assoc (sign1, sign2) li in
+        SignSet.union acc2 res
+      ) s2 acc
+    )
+    s1 SignSet.empty
+  in res
 ;;
 
-let mul_signs_tab = 
-  [ 
-    ((pos, pos), pos);
-    ((neg, neg), pos); 
-    ((pos, neg), neg); 
-    ((posneg, pos), posneg);
-    ((posneg, neg), posneg);
-    ((posneg, posneg), posneg);
-  ] ;; 
-
-let get_mul_sign firstSet secondSet =
-  print_string "mul\n";
-  if SignSet.equal firstSet zero || SignSet.equal secondSet zero
-  then zero
-  else
-    let comb = get_comb mul_signs_tab
-        (SignSet.remove Zero firstSet)
-        (SignSet.remove Zero secondSet)
-        true
-    in
-    if SignSet.mem Zero firstSet || SignSet.mem Zero secondSet
-    then SignSet.add Zero comb
-    else comb
-;;
-
-let sub_signs_tab =
+let add_signs_assoclist =
   [
-    ((zero, pos), neg);
-    ((zero, neg), pos);
-    ((zero, zero), zero);
-    ((zero, poszero), negzero);
-    ((zero, negzero), poszero);
-    ((zero, posneg), posneg);
-    ((zero, all), all);
-    ((pos, pos), all);
-    ((neg, neg), all);
-    ((pos, neg), pos);
-    ((neg, pos), neg);
-    ((poszero, pos), all);
-    ((pos, poszero), all);
-    ((poszero, neg), pos);
-    ((neg, poszero), neg);
-    ((negzero, pos), neg);
-    ((pos, negzero), pos);
-    ((negzero, neg), all);
-    ((neg, negzero), all);
-    ((poszero, negzero), all);
-    ((negzero, poszero), all);
-  ]
-
-let get_sub_sign firstSet secondSet =
-  print_string "sub\n";
-  if SignSet.equal secondSet zero
-  then firstSet
-  else
-    let rmZE = (fun s -> s |> SignSet.remove Zero |> SignSet.remove Err) in
-    let fS = rmZE firstSet in
-    let sS = rmZE secondSet in
-    if SignSet.equal fS posneg || (not (SignSet.equal firstSet zero) && (SignSet.equal sS posneg))
-    then all
-    else get_comb sub_signs_tab firstSet secondSet false
-;;
-
-let div_signs_table = mul_signs_tab;;
-
-let mod_signs_table = 
-  [
-    ((pos, pos), poszero);
-    ((neg, neg), negzero);
-    ((neg, pos), negzero);
-    ((pos, neg), poszero);
-    ((posneg, pos), all);
-    ((pos, posneg), poszero);
-    ((posneg, neg), all);
-    ((neg, posneg), negzero);
-    ((posneg, posneg), all);
-    ((all, all), all);
-    ((posneg, all), posneg);
+    ((Sign.Pos, Sign.Neg), all);
+    ((Sign.Pos, Sign.Pos), pos);
+    ((Sign.Neg, Sign.Pos), all);
+    ((Sign.Neg, Sign.Neg), neg);
+    ((Sign.Zero, Sign.Pos), pos);
+    ((Sign.Pos, Sign.Zero), pos);
+    ((Sign.Zero, Sign.Neg), neg);
+    ((Sign.Neg, Sign.Zero), neg);
+    ((Sign.Zero, Sign.Zero), zero);
   ];;
 
-let get_div_mod_sign firstSet secondSet isMod =
-  print_string "div/mod\n";
-  if SignSet.equal secondSet zero
-  then error
-  else
-    let res =
-      if SignSet.equal firstSet zero
-      then zero
-      else
-        let tab = if isMod
-                  then mod_signs_table
-                  else div_signs_table
-        in
-        let comb = get_comb tab
-            (SignSet.remove Zero firstSet)
-            (SignSet.remove Zero secondSet)
-            true
-        in
-        if SignSet.mem Zero firstSet
-        then SignSet.union zero comb
-        else comb
-    in
-    if SignSet.mem Zero secondSet
-    then SignSet.union res error
-    else res
+let get_add_sign firstSet secondSet = 
+  compute_signs add_signs_assoclist firstSet secondSet
+;;
+
+let mul_signs_assoclist =
+  [
+    ((Sign.Pos, Sign.Neg), neg);
+    ((Sign.Pos, Sign.Pos), pos);
+    ((Sign.Neg, Sign.Pos), neg);
+    ((Sign.Neg, Sign.Neg), pos);
+    ((Sign.Zero, Sign.Pos), zero);
+    ((Sign.Pos, Sign.Zero), zero);
+    ((Sign.Zero, Sign.Neg), zero);
+    ((Sign.Neg, Sign.Zero), zero);
+    ((Sign.Zero, Sign.Zero), zero);
+  ];;
+
+let get_mul_sign firstSet secondSet =
+  compute_signs mul_signs_assoclist firstSet secondSet
+;;
+
+let sub_signs_assoclist =
+  [
+    ((Sign.Pos, Sign.Neg), pos);
+    ((Sign.Pos, Sign.Pos), all);
+    ((Sign.Neg, Sign.Pos), neg);
+    ((Sign.Neg, Sign.Neg), all);
+    ((Sign.Zero, Sign.Pos), neg);
+    ((Sign.Pos, Sign.Zero), pos);
+    ((Sign.Zero, Sign.Neg), pos);
+    ((Sign.Neg, Sign.Zero), neg);
+    ((Sign.Zero, Sign.Zero), zero);
+  ];;
+
+let get_sub_sign firstSet secondSet =
+  compute_signs sub_signs_assoclist firstSet secondSet
+;;
+
+let div_signs_assoclist =
+  [
+    ((Sign.Pos, Sign.Neg), neg);
+    ((Sign.Pos, Sign.Pos), pos);
+    ((Sign.Neg, Sign.Pos), neg);
+    ((Sign.Neg, Sign.Neg), pos);
+    ((Sign.Zero, Sign.Pos), zero);
+    ((Sign.Pos, Sign.Zero), error);
+    ((Sign.Zero, Sign.Neg), zero);
+    ((Sign.Neg, Sign.Zero), error);
+    ((Sign.Zero, Sign.Zero), error);
+  ];;
+
+let mod_signs_assoclist =
+  [
+    ((Sign.Pos, Sign.Neg), pos);
+    ((Sign.Pos, Sign.Pos), pos);
+    ((Sign.Neg, Sign.Pos), neg);
+    ((Sign.Neg, Sign.Neg), neg);
+    ((Sign.Zero, Sign.Pos), zero);
+    ((Sign.Pos, Sign.Zero), error);
+    ((Sign.Zero, Sign.Neg), zero);
+    ((Sign.Neg, Sign.Zero), error);
+    ((Sign.Zero, Sign.Zero), error);
+  ];;
+
+let get_div_sign firstSet secondSet =
+  compute_signs div_signs_assoclist firstSet secondSet
+;;
+
+let get_mod_sign firstSet secondSet =
+  compute_signs mod_signs_assoclist firstSet secondSet
 ;;
