@@ -1,11 +1,8 @@
-***Note : ce rapport, rédigé pour le 1er rendu du projet Polish, est évidemment
-incomplet, et est susceptible de changer jusqu'au rendu final.***
-
 # Identifiants
 Les membres du groupes sont :
-| Nom               | Prénom   | Identifiants gitlab | Numéro d'étudiant |
-|-------------------|----------|---------------------|-------------------|
-| Teixeira Medeiros | Claudio  | @teixeirc           | 21953762          |
+| Nom               | Prénom   | Identifiants gitlab | Numéro d'étudiant |<br>
+|-------------------|----------|---------------------|-------------------|<br>
+| Teixeira Medeiros | Claudio  | @teixeirc           | 21953762          |<br>
 | Maudet            | Benjamin | DaRealNim, @maudet  | 21957316          |
 
 # Fonctionnalités
@@ -78,36 +75,75 @@ plus haut et `--eval prog.p` execute le programme polish prog.p.
 Le projet Polish est découpé en 5 modules, tous dans le dossier src/ :
 - **Polish** : le module principal, contenant la fonction main, l'évaluation des
 arguments et fait appel aux autres modules pour les différents traitements.
+
 - **AbstractSyntax** : ce module contient les définitions des types ocaml
 permettant de représenter la syntaxe d'un programme polish en mémoire.
+
 - **Parser** : ce module contient la fonction read_polish ainsi que toutes ses
 fonctions auxiliaires, et permet la lecture d'un fichier polish, ainsi que
 l'analyse statique du programme et sa transformation en la syntaxe abstraite
 fournie par *AbstractSyntax*.
+`read_polish : string -> program`
+
 - **Printer** : ce module, contenant la fonction print_polish ainsi que ses
 fonctions auxiliaires, permet le ré-affichage d'un programme polish depuis sa
 syntaxe abstraite.
+`print_polish : program -> unit`
+
 - **VirtualMachine** : ce module, contenant la fonction eval_polish ainsi que
 ses fonctions auxiliaires, permet l'évaluation, ou l'execution, d'un programme
 polish depuis sa syntaxe abstraite. Cette "machine virtuelle" utilise une Map
 ocaml pour associer les noms des variables du programme à leur valeur pendant
 l'execution.
+`eval_polish : program -> unit`
+
+- **Vars** : ce module contient l'implementation de l'option --vars, 
+qui permet de lister toutes les variables d'un programme et de lister des 
+variables qui peuvent être accédées avant d'avoir été initialisées, 
+qu'on appelle "dangereuses".
+`vars_polish : program -> unit`
+
+- **Signs** : ce module permet de lister les variables du programme ainsi que 
+leur liste de signes possible respective. Une variable peut être positive, 
+négative, nulle ou bien une erreur (dans le cas d'une division par zéro 
+par exemple). Le module ne respecte pas la spécification du sujet 
+pour les blocs "WHILE".
+`signs_polish : program -> unit`
+
+- **Simplifier** : ce module permet de simplifier des programmes inutilement 
+compliqués, en simplifiant des conditons insatisfiables ou valides et en 
+réduisant l'écriture des opérations à uniquement leur valeur 
+finale quand cela est possible.
+`simplify_polish : program -> polish`
 
 # Organisation du travail
+-- RENDU 1 --
 Le différentes taches à réaliser sur ce projet ont été un effort collectif. Ce
 projet étant une introduction au monde des langages, de l'analyse syntaxique,
 des interpréteurs, etc... pour les deux membres du groupe, un gros travail de
 recherche et de réflexion commune sur chaque partie de ce projet fut nécéssaire.
 
-On peut diviser ce projet en 3 parties majeures, la lecture et le parsing,
+On peut diviser ce projet en 4 parties majeures, la lecture, le parsing,
 le ré-affichage et l'éxecution. La partie la plus conséquente en terme de
 réflexion et de design étant la lecture et le parsing, elle a nécéssité le
 travail des deux membres. Claudio Teixeira s'est chargé de réaliser la structure
-du parser, Benjamin Maudet à fait de la correction de typage afin de rendre la
+du parser, Benjamin Maudet a fait de la correction de typage afin de rendre la
 structure fonctionnelle.
 
 Les deux autres parties, bien moins compliquées à réaliser, n'ont nécéssité que
 le code d'un seul membre (Benjamin Maudet), bien que les idées ont souvent été
-trouvées lors de séances de réflexion communes.
+trouvées lors de discussions ou séances de programmation en binôme.
 
 Le travail a commencé le 16 novembre et a avancé progressivement depuis.
+
+-- RENDU 2 --
+
+Trois fonctionnalités auxiliaires étaient demandées pour le deuxième rendu, 
+correspondant aux modules **Vars**, **Signs** et **Simplifier**.
+
+La réalisation du deuxième rendu s'est déroulée de façon à peu près équivalente 
+à celle du premier:
+
+Benjamin Maudet a travaillé sur le module **Simplifier** et Claudio Teixeira 
+a travaillé sur le module **Vars**. Le module **Signs** est dans sa grande 
+majorité le résultat d'une programmation par binôme.
