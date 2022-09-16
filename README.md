@@ -1,3 +1,6 @@
+# Polish
+A parser and interprer for a simple programming language nammed Polish.
+
 # Identifiants
 Les membres du groupes sont :
 
